@@ -557,7 +557,7 @@
     "src/lib/utils/constants.ts"() {
       "use strict";
       DISCORD_SERVER = "https://discord.gg/XjYgWXHb9Q";
-      GITHUB = "https://github.com/pyoncord";
+      GITHUB = "https://github.com/felitendo";
       PROXY_PREFIX = "https://vd-plugins.github.io/proxy";
       BUNNY_PROXY_PREFIX = "https://bn-plugins.github.io/vd-proxy";
       HTTP_REGEX = /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)$/;
@@ -1298,7 +1298,7 @@
   }
   function getThemeFilePath() {
     if (isPyonLoader()) {
-      return "pyoncord/current-theme.json";
+      return "felitendo/current-theme.json";
     } else if (isVendettaLoader()) {
       return "vendetta_theme.json";
     }
@@ -1317,8 +1317,8 @@
     if (!isReactDevToolsPreloaded())
       return null;
     if (isPyonLoader()) {
-      window.__pyoncord_rdt = window.__reactDevTools.exports;
-      return "__pyoncord_rdt";
+      window.__felitendo_rdt = window.__reactDevTools.exports;
+      return "__felitendo_rdt";
     }
     if (isVendettaLoader()) {
       return vendettaLoaderIdentity.features.devtools.prop;
@@ -1356,7 +1356,7 @@
   }
   function getLoaderConfigPath() {
     if (isPyonLoader()) {
-      return "pyoncord/loader.json";
+      return "felitendo/loader.json";
     } else if (isVendettaLoader()) {
       return "vendetta_loader.json";
     }
@@ -1393,7 +1393,7 @@
       loaderConfig = wrapSync(createStorage(createFileBackend(getLoaderConfigPath(), {
         customLoadUrl: {
           enabled: false,
-          url: "http://localhost:4040/bunny.js"
+          url: "http://localhost:4040/felocord.js"
         }
       })));
     }
@@ -1720,7 +1720,7 @@
         if (blacklistedIds.has(id1))
           continue;
         moduleExports = requireModule(id1);
-        if (!moduleExports || moduleExports === window || moduleExports["i think pyoncord eol tomorrow idk tho"] === null)
+        if (!moduleExports || moduleExports === window || moduleExports["i think felitendo eol tomorrow idk tho"] === null)
           blacklistModule(id1);
       }
       noopHandler = function() {
@@ -1802,7 +1802,7 @@
       "use strict";
       init_filters();
       logModule = findByName("Logger");
-      logger = new logModule("Bunny");
+      logger = new logModule("Felocord");
     }
   });
 
@@ -1838,8 +1838,8 @@
         ARE_YOU_SURE_TO_DELETE_THEME: "Are you sure you wish to delete {name}?",
         ASSET_BROWSER: "Asset Browser",
         BRAND: "Brand",
-        BUNNY: "Bunny",
-        BUNNY_URL: "Bunny URL",
+        BUNNY: "Felocord",
+        BUNNY_URL: "Felocord URL",
         BYTECODE: "Bytecode",
         CANCEL: "Cancel",
         CLEAR: "Clear",
@@ -1847,7 +1847,7 @@
         CLEAR_DATA_FAILED: "Failed to clear data for {name}!",
         CLEAR_DATA_SUCCESSFUL: "Cleared data for {name}.",
         CODENAME: "Codename",
-        COMMAND_DEBUG_DESC: "Send Bunny debug info.",
+        COMMAND_DEBUG_DESC: "Send Felocord debug info.",
         COMMAND_DEBUG_OPT_EPHEMERALLY: "Send debug info ephemerally.",
         COMMAND_EVAL_DESC: "Evaluate JavaScript code.",
         COMMAND_EVAL_OPT_ASYNC: "Whether to support 'await' in code. Must explicitly return for result (default: false)",
@@ -1890,7 +1890,7 @@
         LABEL_EXTRACT_FONTS_FROM_THEME: "Extract font from theme",
         LINKS: "Links",
         LOAD_FROM_CUSTOM_URL: "Load from custom URL",
-        LOAD_FROM_CUSTOM_URL_DEC: "Load Bunny from a custom endpoint.",
+        LOAD_FROM_CUSTOM_URL_DEC: "Load Felocord from a custom endpoint.",
         LOAD_REACT_DEVTOOLS: "Load React DevTools",
         LOADER: "Loader",
         MACHINE_ID: "Machine ID",
@@ -1966,7 +1966,7 @@
       }
       if (!_loadedLocale.has(resolvedLocale)) {
         _loadedLocale.add(resolvedLocale);
-        fetch(`https://raw.githubusercontent.com/pyoncord/i18n/main/resources/${resolvedLocale}/bunny.json`).then(function(r) {
+        fetch(`https://raw.githubusercontent.com/felocord/i18n/main/resources/${resolvedLocale}/felocord.json`).then(function(r) {
           return r.json();
         }).then(function(strings) {
           return _loadedStrings[resolvedLocale] = strings;
@@ -2130,7 +2130,7 @@
         // Wrapping this with wrapSync is NOT an option.
         storage: await createStorage(createMMKVBackend(plugin.id))
       },
-      logger: new logModule(`Bunny \xBB ${plugin.manifest.name}`)
+      logger: new logModule(`Felocord \xBB ${plugin.manifest.name}`)
     };
     var pluginString = `vendetta=>{return ${plugin.js}}
 //# sourceURL=${plugin.id}`;
@@ -3385,11 +3385,11 @@
     }
   });
 
-  // src/assets/icons/pyoncord.png
-  var pyoncord_default;
-  var init_pyoncord = __esm({
-    "src/assets/icons/pyoncord.png"() {
-      pyoncord_default = "data:image/png;base64,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";
+  // src/assets/icons/felitendo.png
+  var felitendo_default;
+  var init_felitendo = __esm({
+    "src/assets/icons/felitendo.png"() {
+      felitendo_default = "data:image/png;base64,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";
     }
   });
 
@@ -3522,7 +3522,7 @@
     settingConstants.SETTING_RENDERER_CONFIG.VendettaCustomPage = {
       type: "route",
       title: function() {
-        return "Bunny";
+        return "Felocord";
       },
       screen: {
         route: "VendettaCustomPage",
@@ -3718,7 +3718,7 @@
         version: versionHash,
         loader: getLoaderName()
       },
-      bunny: {
+      felocord: {
         version: versionHash,
         loader: {
           name: getLoaderName(),
@@ -3786,7 +3786,7 @@
       init_logger();
       init_toasts();
       import_react_native11 = __toESM(require_react_native());
-      versionHash = "e9d80c7-main";
+      versionHash = "c56d822-main";
     }
   });
 
@@ -3822,7 +3822,7 @@
     var versions = [
       {
         label: Strings.BUNNY,
-        version: debugInfo.bunny.version,
+        version: debugInfo.felocord.version,
         icon: "ic_progress_wrench_24px"
       },
       {
@@ -3849,7 +3849,7 @@
     var platformInfo = [
       {
         label: Strings.LOADER,
-        version: `${debugInfo.bunny.loader.name} (${debugInfo.bunny.loader.version})`,
+        version: `${debugInfo.felocord.loader.name} (${debugInfo.felocord.loader.version})`,
         icon: "ic_download_24px"
       },
       {
@@ -3961,11 +3961,11 @@
       label: Strings.BUNNY,
       icon: /* @__PURE__ */ React.createElement(TableRow.Icon, {
         source: {
-          uri: pyoncord_default
+          uri: felitendo_default
         }
       }),
       trailing: /* @__PURE__ */ React.createElement(TableRow.TrailingText, {
-        text: debugInfo.bunny.version
+        text: debugInfo.felocord.version
       })
     }), /* @__PURE__ */ React.createElement(TableRow, {
       label: "Discord",
@@ -5324,25 +5324,25 @@
     removeFile: () => removeFile,
     writeFile: () => writeFile
   });
-  async function clearFolder(path, prefix = "pyoncord/") {
+  async function clearFolder(path, prefix = "felitendo/") {
     if (typeof FileManager.clearFolder !== "function")
       throw new Error("'fs.clearFolder' is not supported");
     return void await FileManager.clearFolder("documents", `${prefix}${path}`);
   }
-  async function removeFile(path, prefix = "pyoncord/") {
+  async function removeFile(path, prefix = "felitendo/") {
     if (typeof FileManager.removeFile !== "function")
       throw new Error("'fs.removeFile' is not supported");
     return void await FileManager.removeFile("documents", `${prefix}${path}`);
   }
-  async function fileExists(path, prefix = "pyoncord/") {
+  async function fileExists(path, prefix = "felitendo/") {
     return await FileManager.fileExists(`${FileManager.getConstants().DocumentsDirPath}/${prefix}${path}`);
   }
-  async function writeFile(path, data, prefix = "pyoncord/") {
+  async function writeFile(path, data, prefix = "felitendo/") {
     if (typeof data !== "string")
       throw new Error("Argument 'data' must be a string");
     return void await FileManager.writeFile("documents", `${prefix}${path}`, data, "utf8");
   }
-  async function readFile(path, fallback, prefix = "pyoncord/") {
+  async function readFile(path, fallback, prefix = "felitendo/") {
     try {
       return await FileManager.readFile(`${FileManager.getConstants().DocumentsDirPath}/${prefix}${path}`, "utf8");
     } catch (e) {
@@ -5353,7 +5353,7 @@
       return fallback;
     }
   }
-  async function downloadFile(url2, path, prefix = "pyoncord/") {
+  async function downloadFile(url2, path, prefix = "felitendo/") {
     var blob = await fetch(url2).then(function(r) {
       return r.blob();
     });
@@ -6259,7 +6259,7 @@
   // src/core/ui/settings/index.ts
   function initSettings() {
     registerSection({
-      name: "Bunny",
+      name: "Felocord",
       items: [
         {
           key: "BUNNY",
@@ -6267,14 +6267,14 @@
             return Strings.BUNNY;
           },
           icon: {
-            uri: pyoncord_default
+            uri: felitendo_default
           },
           render: function() {
             return Promise.resolve().then(() => (init_General(), General_exports));
           },
           rawTabsConfig: {
             useTrailing: function() {
-              return `(${"e9d80c7-main"})`;
+              return `(${"c56d822-main"})`;
             }
           }
         },
@@ -6337,7 +6337,7 @@
   var init_settings3 = __esm({
     "src/core/ui/settings/index.ts"() {
       "use strict";
-      init_pyoncord();
+      init_felitendo();
       init_i18n();
       init_assets();
       init_loader();
@@ -6455,8 +6455,8 @@
       execute([ephemeral], ctx) {
         var info = getDebugInfo();
         var content = [
-          "**Bunny Debug Info**",
-          `> Bunny: ${info.bunny.version} (${info.bunny.loader.name} ${info.bunny.loader.version})`,
+          "**Felocord Debug Info**",
+          `> Felocord: ${info.felocord.version} (${info.felocord.loader.name} ${info.felocord.loader.version})`,
           `> Discord: ${info.discord.version} (${info.discord.build})`,
           `> React: ${info.react.version} (RN ${info.react.nativeVersion})`,
           `> Hermes: ${info.hermes.version} (bcv${info.hermes.bytecodeVersion})`,
@@ -6555,7 +6555,7 @@
     var unpatch2 = after("getBuiltInCommands", commands, function([type], res) {
       if (type === ApplicationCommandType.CHAT) {
         return res.concat(commands2.filter(function(c) {
-          return c.__bunny?.shouldHide?.() !== false;
+          return c.__felocord?.shouldHide?.() !== false;
         }));
       }
     });
@@ -6579,7 +6579,7 @@
     });
     var lastCommand = builtInCommands[builtInCommands.length - 1];
     command.id = (parseInt(lastCommand.id, 10) - 1).toString();
-    command.__bunny = {
+    command.__felocord = {
       shouldHide: command.shouldHide
     };
     (_command = command).applicationId ?? (_command.applicationId = "-1");
@@ -6870,7 +6870,7 @@
             },
             createFileBackend: function(file) {
               if (isPyonLoader() && file === "vendetta_theme.json") {
-                file = "pyoncord/current-theme.json";
+                file = "felitendo/current-theme.json";
               }
               return createFileBackend(file);
             }
@@ -6958,8 +6958,8 @@
     "src/lib/api/flux/index.ts"() {
       "use strict";
       init_common();
-      blockedSym = Symbol.for("bunny.flux.blocked");
-      modifiedSym = Symbol.for("bunny.flux.modified");
+      blockedSym = Symbol.for("felocord.flux.blocked");
+      modifiedSym = Symbol.for("felocord.flux.modified");
       dispatcher = FluxDispatcher;
       intercepts = [];
     }
@@ -7243,7 +7243,7 @@
     for (var d of _disposer)
       if (typeof d === "function")
         d();
-    delete window.bunny;
+    delete window.felocord;
   }
   var _disposer;
   var init_lib = __esm({
@@ -7281,7 +7281,7 @@
         }
         initThemes();
       } catch (e) {
-        console.error("[Bunny] Failed to initialize themes...", e);
+        console.error("[Felocord] Failed to initialize themes...", e);
       }
     }
     await Promise.all([
@@ -7305,10 +7305,10 @@
         });
       }
     );
-    window.bunny = lib_exports;
+    window.felocord = lib_exports;
     unload.push(await initPlugins());
     updateFonts();
-    logger.log("Bunny is ready!");
+    logger.log("Felocord is ready!");
   }
   var init_src = __esm({
     "src/index.ts"() {
@@ -7340,7 +7340,7 @@
   globalThis.window = globalThis;
   var init = function() {
     try {
-      console.log("Hello from Bunny!");
+      console.log("Hello from Felocord!");
       Object.freeze = Object.seal = Object;
       (init_src(), __toCommonJS(src_exports)).default();
     } catch (e) {
@@ -7348,9 +7348,9 @@
       var stack = e instanceof Error ? e.stack : void 0;
       console.log(stack ?? e?.toString?.() ?? e);
       alert([
-        "Failed to load Bunny!\n",
+        "Failed to load Felocord!\n",
         `Build Number: ${ClientInfoManager2.Build}`,
-        `Bunny: ${"e9d80c7-main"}`,
+        `Felocord: ${"c56d822-main"}`,
         stack || e?.toString?.()
       ].join("\n"));
     }
@@ -7412,4 +7412,4 @@
   var _requireFunc;
   var onceIndexRequired2;
 })();
-//# sourceURL=bunny
+//# sourceURL=felocord
