@@ -558,7 +558,7 @@
       "use strict";
       DISCORD_SERVER = "https://felo.gg/discord";
       GITHUB = "https://github.com/Felocord";
-      PROXY_PREFIX = "https://bn-plugins.github.io/vd-proxy";
+      PROXY_PREFIX = "https://vd-plugins.github.io/proxy";
       BUNNY_PROXY_PREFIX = "https://bn-plugins.github.io/vd-proxy";
       HTTP_REGEX = /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)$/;
       HTTP_REGEX_MULTI = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&//=]*)/g;
@@ -3786,7 +3786,7 @@
       init_logger();
       init_toasts();
       import_react_native11 = __toESM(require_react_native());
-      versionHash = "add9a8b-main";
+      versionHash = "e4714f6-main";
     }
   });
 
@@ -6274,7 +6274,7 @@
           },
           rawTabsConfig: {
             useTrailing: function() {
-              return `(${"add9a8b-main"})`;
+              return `(${"e4714f6-main"})`;
             }
           }
         },
@@ -7350,7 +7350,7 @@
       alert([
         "Failed to load Felocord!\n",
         `Build Number: ${ClientInfoManager2.Build}`,
-        `Felocord: ${"add9a8b-main"}`,
+        `Felocord: ${"e4714f6-main"}`,
         stack || e?.toString?.()
       ].join("\n"));
     }
