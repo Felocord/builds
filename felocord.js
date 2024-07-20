@@ -556,15 +556,15 @@
   var init_constants = __esm({
     "src/lib/utils/constants.ts"() {
       "use strict";
-      DISCORD_SERVER = "https://discord.gg/XjYgWXHb9Q";
-      GITHUB = "https://github.com/felitendo";
-      PROXY_PREFIX = "https://vd-plugins.github.io/proxy";
+      DISCORD_SERVER = "https://felo.gg/discord";
+      GITHUB = "https://github.com/Felocord";
+      PROXY_PREFIX = "https://bn-plugins.github.io/vd-proxy";
       BUNNY_PROXY_PREFIX = "https://bn-plugins.github.io/vd-proxy";
       HTTP_REGEX = /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)$/;
       HTTP_REGEX_MULTI = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&//=]*)/g;
-      DISCORD_SERVER_ID = "1015931589865246730";
-      PLUGINS_CHANNEL_ID = "1091880384561684561";
-      THEMES_CHANNEL_ID = "1091880434939482202";
+      DISCORD_SERVER_ID = "1040629044284244008";
+      PLUGINS_CHANNEL_ID = "1264195903535972363";
+      THEMES_CHANNEL_ID = "1264195933953064970";
     }
   });
 
@@ -3786,7 +3786,7 @@
       init_logger();
       init_toasts();
       import_react_native11 = __toESM(require_react_native());
-      versionHash = "c56d822-main";
+      versionHash = "add9a8b-main";
     }
   });
 
@@ -6274,7 +6274,7 @@
           },
           rawTabsConfig: {
             useTrailing: function() {
-              return `(${"c56d822-main"})`;
+              return `(${"add9a8b-main"})`;
             }
           }
         },
@@ -6721,14 +6721,14 @@
             }
           },
           constants: {
-            DISCORD_SERVER: "https://discord.gg/n9QQ4XhhJP",
-            GITHUB: "https://github.com/vendetta-mod",
-            PROXY_PREFIX: "https://vd-plugins.github.io/proxy",
+            DISCORD_SERVER: "https://felo.gg/discord",
+            GITHUB: "https://github.com/Felocord",
+            PROXY_PREFIX: "https://bn-plugins.github.io/vd-proxy",
             HTTP_REGEX: /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)$/,
             HTTP_REGEX_MULTI: /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&//=]*)/g,
-            DISCORD_SERVER_ID: "1015931589865246730",
-            PLUGINS_CHANNEL_ID: "1091880384561684561",
-            THEMES_CHANNEL_ID: "1091880434939482202"
+            DISCORD_SERVER_ID: "1040629044284244008",
+            PLUGINS_CHANNEL_ID: "1264195903535972363",
+            THEMES_CHANNEL_ID: "1264195933953064970"
           },
           utils: {
             findInReactTree: function(tree, filter) {
@@ -7350,7 +7350,7 @@
       alert([
         "Failed to load Felocord!\n",
         `Build Number: ${ClientInfoManager2.Build}`,
-        `Felocord: ${"c56d822-main"}`,
+        `Felocord: ${"add9a8b-main"}`,
         stack || e?.toString?.()
       ].join("\n"));
     }
