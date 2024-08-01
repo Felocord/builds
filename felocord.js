@@ -3786,7 +3786,7 @@
       init_logger();
       init_toasts();
       import_react_native11 = __toESM(require_react_native());
-      versionHash = "25ed0e3-main";
+      versionHash = "d6f3316-main";
     }
   });
 
@@ -6274,7 +6274,7 @@
           },
           rawTabsConfig: {
             useTrailing: function() {
-              return `(${"25ed0e3-main"})`;
+              return `(${"d6f3316-main"})`;
             }
           }
         },
@@ -7350,7 +7350,7 @@
       alert([
         "Failed to load Felocord!\n",
         `Build Number: ${ClientInfoManager2.Build}`,
-        `Felocord: ${"25ed0e3-main"}`,
+        `Felocord: ${"d6f3316-main"}`,
         stack || e?.toString?.()
       ].join("\n"));
     }
