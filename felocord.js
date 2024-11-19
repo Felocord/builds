@@ -215,8 +215,8 @@
             return ret;
           };
           var replaceProxy = new Proxy(origFunc, {
-            apply: (_, ctxt, args) => runHook(ctxt, args, false),
-            construct: (_, args) => runHook(origFunc, args, true),
+            apply: (_2, ctxt, args) => runHook(ctxt, args, false),
+            construct: (_2, args) => runHook(origFunc, args, true),
             get: (target, prop, receiver) => prop == "toString" ? origFunc.toString.bind(origFunc) : Reflect.get(target, prop, receiver)
           });
           var success = Reflect.defineProperty(funcParent, funcName, {
@@ -238,7 +238,7 @@
     }
   });
 
-  // src/lib/api/native/modules.ts
+  // src/lib/api/native/modules/index.ts
   var modules_exports = {};
   __export(modules_exports, {
     BundleUpdaterManager: () => BundleUpdaterManager,
@@ -250,17 +250,17 @@
   });
   var nmp, MMKVManager, FileManager, ClientInfoManager, DeviceManager, BundleUpdaterManager, ThemeManager;
   var init_modules = __esm({
-    "src/lib/api/native/modules.ts"() {
+    "src/lib/api/native/modules/index.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       nmp = window.nativeModuleProxy;
-      MMKVManager = nmp.MMKVManager;
-      FileManager = nmp.DCDFileManager ?? nmp.RTNFileManager;
-      ClientInfoManager = nmp.InfoDictionaryManager ?? nmp.RTNClientInfoManager;
-      DeviceManager = nmp.DCDDeviceManager ?? nmp.RTNDeviceManager;
+      MMKVManager = nmp.NativeCacheModule ?? nmp.MMKVManager;
+      FileManager = nmp.NativeFileModule ?? nmp.RTNFileManager ?? nmp.DCDFileManager;
+      ClientInfoManager = nmp.NativeClientInfoModule ?? nmp.RTNClientInfoManager ?? nmp.InfoDictionaryManager;
+      DeviceManager = nmp.NativeDeviceModule ?? nmp.RTNDeviceManager ?? nmp.DCDDeviceManager;
       ({ BundleUpdaterManager } = nmp);
-      ThemeManager = nmp.RTNThemeManager ?? nmp.DCDTheme;
+      ThemeManager = nmp.NativeThemeModule ?? nmp.RTNThemeManager ?? nmp.DCDTheme;
     }
   });
 
@@ -283,7 +283,7 @@
     try {
       var result = !Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function() {
       }));
-    } catch (_) {
+    } catch (_2) {
     }
     return (_is_native_reflect_construct = function _is_native_reflect_construct2() {
       return !!result;
@@ -479,62 +479,98 @@
     }
   });
 
-  // node_modules/.pnpm/es-toolkit@1.17.0/node_modules/es-toolkit/dist/function/debounce.mjs
-  function debounce(func, debounceMs, { signal } = {}) {
+  // node_modules/.pnpm/es-toolkit@1.21.0/node_modules/es-toolkit/dist/function/debounce.mjs
+  function debounce(func, debounceMs, { signal, edges } = {}) {
+    var pendingThis = void 0;
+    var pendingArgs = null;
+    var leading = edges != null && edges.includes("leading");
+    var trailing = edges == null || edges.includes("trailing");
+    var invoke = () => {
+      if (pendingArgs !== null) {
+        func.apply(pendingThis, pendingArgs);
+        pendingThis = void 0;
+        pendingArgs = null;
+      }
+    };
+    var onTimerEnd = () => {
+      if (trailing) {
+        invoke();
+      }
+      cancel();
+    };
     var timeoutId = null;
-    var debounced = function debounced2(...args) {
-      if (timeoutId !== null) {
+    var schedule = () => {
+      if (timeoutId != null) {
         clearTimeout(timeoutId);
       }
+      timeoutId = setTimeout(() => {
+        timeoutId = null;
+        onTimerEnd();
+      }, debounceMs);
+    };
+    var cancelTimer = () => {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+    var cancel = () => {
+      cancelTimer();
+      pendingThis = void 0;
+      pendingArgs = null;
+    };
+    var flush = () => {
+      cancelTimer();
+      invoke();
+    };
+    var debounced = function debounced2(...args) {
       if (signal?.aborted) {
         return;
       }
-      timeoutId = setTimeout(() => {
-        func(...args);
-        timeoutId = null;
-      }, debounceMs);
-    };
-    var onAbort = function onAbort2() {
-      debounced.cancel();
-    };
-    debounced.cancel = function() {
-      if (timeoutId !== null) {
-        clearTimeout(timeoutId);
-        timeoutId = null;
+      pendingThis = this;
+      pendingArgs = args;
+      var isFirstCall = timeoutId == null;
+      schedule();
+      if (leading && isFirstCall) {
+        invoke();
       }
     };
-    signal?.addEventListener("abort", onAbort, {
+    debounced.schedule = schedule;
+    debounced.cancel = cancel;
+    debounced.flush = flush;
+    signal?.addEventListener("abort", cancel, {
       once: true
     });
     return debounced;
   }
   var init_debounce = __esm({
-    "node_modules/.pnpm/es-toolkit@1.17.0/node_modules/es-toolkit/dist/function/debounce.mjs"() {
+    "node_modules/.pnpm/es-toolkit@1.21.0/node_modules/es-toolkit/dist/function/debounce.mjs"() {
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
     }
   });
 
-  // node_modules/.pnpm/es-toolkit@1.17.0/node_modules/es-toolkit/dist/object/omit.mjs
+  // node_modules/.pnpm/es-toolkit@1.21.0/node_modules/es-toolkit/dist/object/omit.mjs
   function omit(obj, keys) {
     var result = {
       ...obj
     };
-    for (var key of keys) {
+    for (var i = 0; i < keys.length; i++) {
+      var key = keys[i];
       delete result[key];
     }
     return result;
   }
   var init_omit = __esm({
-    "node_modules/.pnpm/es-toolkit@1.17.0/node_modules/es-toolkit/dist/object/omit.mjs"() {
+    "node_modules/.pnpm/es-toolkit@1.21.0/node_modules/es-toolkit/dist/object/omit.mjs"() {
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
     }
   });
 
-  // node_modules/.pnpm/es-toolkit@1.17.0/node_modules/es-toolkit/dist/index.mjs
+  // node_modules/.pnpm/es-toolkit@1.21.0/node_modules/es-toolkit/dist/index.mjs
   var init_dist = __esm({
-    "node_modules/.pnpm/es-toolkit@1.17.0/node_modules/es-toolkit/dist/index.mjs"() {
+    "node_modules/.pnpm/es-toolkit@1.21.0/node_modules/es-toolkit/dist/index.mjs"() {
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_debounce();
@@ -740,10 +776,10 @@
     }
   });
 
-  // src/lib/utils/Emitter.ts
+  // src/core/vendetta/Emitter.ts
   var Events, Emitter;
   var init_Emitter = __esm({
-    "src/lib/utils/Emitter.ts"() {
+    "src/core/vendetta/Emitter.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
@@ -816,8 +852,8 @@
       });
     }
     var curry = (raw) => (...args) => {
-      return createHolder((m, id, defaultCheck) => {
-        return fn(args, m, id, defaultCheck);
+      return createHolder((m2, id, defaultCheck) => {
+        return fn(args, m2, id, defaultCheck);
       }, args, raw);
     };
     return Object.assign(curry(false), {
@@ -826,7 +862,7 @@
     });
   }
   function createSimpleFilter(filter, uniq) {
-    return createFilterDefinition((_, m) => filter(m), () => `dynamic::${uniq}`)();
+    return createFilterDefinition((_2, m2) => filter(m2), () => `dynamic::${uniq}`)();
   }
   var init_factories = __esm({
     "src/metro/factories.ts"() {
@@ -855,19 +891,19 @@
       init_promiseAllSettled();
       init_factories();
       init_modules2();
-      byProps = createFilterDefinition((props, m) => props.length === 0 ? m[props[0]] : props.every((p) => m[p]), (props) => `felocord.metro.byProps(${props.join(",")})`);
-      byName = createFilterDefinition(([name], m) => m.name === name, (name) => `felocord.metro.byName(${name})`);
-      byDisplayName = createFilterDefinition(([displayName], m) => m.displayName === displayName, (name) => `felocord.metro.byDisplayName(${name})`);
-      byTypeName = createFilterDefinition(([typeName], m) => m.type?.name === typeName, (name) => `felocord.metro.byTypeName(${name})`);
-      byStoreName = createFilterDefinition(([name], m) => m.getName?.length === 0 && m.getName() === name, (name) => `felocord.metro.byStoreName(${name})`);
+      byProps = createFilterDefinition((props, m2) => props.length === 0 ? m2[props[0]] : props.every((p) => m2[p]), (props) => `felocord.metro.byProps(${props.join(",")})`);
+      byName = createFilterDefinition(([name], m2) => m2.name === name, (name) => `felocord.metro.byName(${name})`);
+      byDisplayName = createFilterDefinition(([displayName], m2) => m2.displayName === displayName, (name) => `felocord.metro.byDisplayName(${name})`);
+      byTypeName = createFilterDefinition(([typeName], m2) => m2.type?.name === typeName, (name) => `felocord.metro.byTypeName(${name})`);
+      byStoreName = createFilterDefinition(([name], m2) => m2.getName?.length === 0 && m2.getName() === name, (name) => `felocord.metro.byStoreName(${name})`);
       byFilePath = createFilterDefinition(
         // module return depends on defaultCheck. if true, it'll return module.default, otherwise the whole module
         // unlike filters like byName, defaultCheck doesn't affect the return since we don't rely on exports, but only its ID
         // one could say that this is technically a hack, since defaultCheck is meant for filtering exports
-        ([path, exportDefault], _, id, defaultCheck) => exportDefault === defaultCheck && metroModules[id]?.__filePath === path,
+        ([path, exportDefault], _2, id, defaultCheck) => exportDefault === defaultCheck && metroModules[id]?.__filePath === path,
         ([path, exportDefault]) => `felocord.metro.byFilePath(${path},${exportDefault})`
       );
-      byMutableProp = createFilterDefinition(([prop], m) => m?.[prop] && !Object.getOwnPropertyDescriptor(m, prop)?.get, (prop) => `felocord.metro.byMutableProp(${prop})`);
+      byMutableProp = createFilterDefinition(([prop], m2) => m2?.[prop] && !Object.getOwnPropertyDescriptor(m2, prop)?.get, (prop) => `felocord.metro.byMutableProp(${prop})`);
     }
   });
 
@@ -971,12 +1007,12 @@
   function lazyDestructure(factory, opts = {}) {
     var proxiedObject = proxyLazy(factory);
     return new Proxy({}, {
-      get(_, property) {
+      get(_2, property) {
         if (property === Symbol.iterator) {
           return function* () {
             yield proxiedObject;
             yield new Proxy({}, {
-              get: (_2, p) => proxyLazy(() => proxiedObject[p], opts)
+              get: (_3, p) => proxyLazy(() => proxiedObject[p], opts)
             });
             throw new Error("This is not a real iterator, this is likely used incorrectly");
           };
@@ -1201,115 +1237,9 @@
     }
   });
 
-  // src/lib/api/storage/backends.ts
-  var import_react_native, ILLEGAL_CHARS_REGEX, filePathFixer, getMMKVPath, purgeStorage, createMMKVBackend, createFileBackend;
-  var init_backends = __esm({
-    "src/lib/api/storage/backends.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_async_to_generator();
-      init_modules();
-      import_react_native = __toESM(require_react_native());
-      ILLEGAL_CHARS_REGEX = /[<>:"/\\|?*]/g;
-      filePathFixer = (file) => import_react_native.Platform.select({
-        default: file,
-        ios: FileManager.saveFileToGallery ? file : `Documents/${file}`
-      });
-      getMMKVPath = (name) => {
-        if (ILLEGAL_CHARS_REGEX.test(name)) {
-          name = name.replace(ILLEGAL_CHARS_REGEX, "-").replace(/-+/g, "-");
-        }
-        return `vd_mmkv/${name}`;
-      };
-      purgeStorage = function() {
-        var _ref = _async_to_generator(function* (store) {
-          if (yield MMKVManager.getItem(store)) {
-            MMKVManager.removeItem(store);
-          }
-          var mmkvPath = getMMKVPath(store);
-          if (yield FileManager.fileExists(`${FileManager.getConstants().DocumentsDirPath}/${mmkvPath}`)) {
-            yield FileManager.removeFile?.("documents", mmkvPath);
-          }
-        });
-        return function purgeStorage2(store) {
-          return _ref.apply(this, arguments);
-        };
-      }();
-      createMMKVBackend = (store, defaultData = {}) => {
-        var mmkvPath = getMMKVPath(store);
-        var defaultStr = JSON.stringify(defaultData);
-        return createFileBackend(mmkvPath, defaultData, _async_to_generator(function* () {
-          var path = `${FileManager.getConstants().DocumentsDirPath}/${mmkvPath}`;
-          if (yield FileManager.fileExists(path))
-            return;
-          var oldData = (yield MMKVManager.getItem(store)) ?? defaultStr;
-          if (oldData === "!!LARGE_VALUE!!") {
-            var cachePath = `${FileManager.getConstants().CacheDirPath}/mmkv/${store}`;
-            if (yield FileManager.fileExists(cachePath)) {
-              oldData = yield FileManager.readFile(cachePath, "utf8");
-            } else {
-              console.log(`${store}: Experienced data loss :(`);
-              oldData = defaultStr;
-            }
-          }
-          try {
-            JSON.parse(oldData);
-          } catch (e) {
-            console.error(`${store} had an unparseable data while migrating`);
-            oldData = defaultStr;
-          }
-          yield FileManager.writeFile("documents", filePathFixer(mmkvPath), oldData, "utf8");
-          if ((yield MMKVManager.getItem(store)) !== null) {
-            MMKVManager.removeItem(store);
-            console.log(`Successfully migrated ${store} store from MMKV storage to fs`);
-          }
-        })());
-      };
-      createFileBackend = (file, defaultData = {}, migratePromise) => {
-        return {
-          get: /* @__PURE__ */ _async_to_generator(function* () {
-            yield migratePromise;
-            var path = `${FileManager.getConstants().DocumentsDirPath}/${file}`;
-            if (yield FileManager.fileExists(path)) {
-              var content = yield FileManager.readFile(path, "utf8");
-              try {
-                return JSON.parse(content);
-              } catch (e) {
-              }
-            }
-            yield FileManager.writeFile("documents", filePathFixer(file), JSON.stringify(defaultData), "utf8");
-            return JSON.parse(yield FileManager.readFile(path, "utf8"));
-          }),
-          set: function() {
-            var _ref = _async_to_generator(function* (data) {
-              yield migratePromise;
-              yield FileManager.writeFile("documents", filePathFixer(file), JSON.stringify(data), "utf8");
-            });
-            return function(data) {
-              return _ref.apply(this, arguments);
-            };
-          }()
-        };
-      };
-    }
-  });
-
-  // src/lib/api/storage/index.ts
-  var storage_exports = {};
-  __export(storage_exports, {
-    awaitStorage: () => awaitStorage,
-    createFileBackend: () => createFileBackend,
-    createMMKVBackend: () => createMMKVBackend,
-    createProxy: () => createProxy,
-    createStorage: () => createStorage,
-    purgeStorage: () => purgeStorage,
-    useProxy: () => useProxy,
-    wrapSync: () => wrapSync
-  });
+  // src/core/vendetta/storage.ts
   function createProxy(target = {}) {
     var emitter = new Emitter();
-    var parentTarget = target;
     var childrens = /* @__PURE__ */ new WeakMap();
     var proxiedChildrenSet = /* @__PURE__ */ new WeakSet();
     function createProxy1(target2, path) {
@@ -1324,7 +1254,6 @@
           var value = target3[prop];
           if (value !== void 0 && value !== null) {
             emitter.emit("GET", {
-              parent: parentTarget,
               path: newPath,
               value
             });
@@ -1358,7 +1287,6 @@
             target3[prop] = value;
           }
           emitter.emit("SET", {
-            parent: parentTarget,
             path: [
               ...path,
               prop
@@ -1373,7 +1301,6 @@
           if (success)
             emitter.emit("DEL", {
               value,
-              parent: parentTarget,
               path: [
                 ...path,
                 prop
@@ -1426,8 +1353,8 @@
     var awaited = void 0;
     var awaitQueue = [];
     var awaitInit = (cb) => awaited ? cb() : awaitQueue.push(cb);
-    store.then((v) => {
-      awaited = v;
+    store.then((v2) => {
+      awaited = v2;
       awaitQueue.forEach((cb) => cb());
     });
     return new Proxy({}, {
@@ -1445,17 +1372,99 @@
   function awaitStorage(...stores) {
     return Promise.all(stores.map((store) => new Promise((res) => store[syncAwaitSymbol](res))));
   }
-  var emitterSymbol, syncAwaitSymbol;
+  var import_react_native, emitterSymbol, syncAwaitSymbol, ILLEGAL_CHARS_REGEX, filePathFixer, getMMKVPath, purgeStorage, createMMKVBackend, createFileBackend;
   var init_storage = __esm({
-    "src/lib/api/storage/index.ts"() {
+    "src/core/vendetta/storage.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_async_to_generator();
       init_Emitter();
-      init_backends();
+      init_modules();
+      import_react_native = __toESM(require_react_native());
       emitterSymbol = Symbol.for("vendetta.storage.emitter");
       syncAwaitSymbol = Symbol.for("vendetta.storage.accessor");
+      ILLEGAL_CHARS_REGEX = /[<>:"/\\|?*]/g;
+      filePathFixer = (file) => import_react_native.Platform.select({
+        default: file,
+        ios: FileManager.saveFileToGallery ? file : `Documents/${file}`
+      });
+      getMMKVPath = (name) => {
+        if (ILLEGAL_CHARS_REGEX.test(name)) {
+          name = name.replace(ILLEGAL_CHARS_REGEX, "-").replace(/-+/g, "-");
+        }
+        return `vd_mmkv/${name}`;
+      };
+      purgeStorage = /* @__PURE__ */ function() {
+        var _ref = _async_to_generator(function* (store) {
+          if (yield MMKVManager.getItem(store)) {
+            MMKVManager.removeItem(store);
+          }
+          var mmkvPath = getMMKVPath(store);
+          if (yield FileManager.fileExists(`${FileManager.getConstants().DocumentsDirPath}/${mmkvPath}`)) {
+            yield FileManager.removeFile?.("documents", mmkvPath);
+          }
+        });
+        return function purgeStorage3(store) {
+          return _ref.apply(this, arguments);
+        };
+      }();
+      createMMKVBackend = (store, defaultData = {}) => {
+        var mmkvPath = getMMKVPath(store);
+        var defaultStr = JSON.stringify(defaultData);
+        return createFileBackend(mmkvPath, defaultData, _async_to_generator(function* () {
+          var path = `${FileManager.getConstants().DocumentsDirPath}/${mmkvPath}`;
+          if (yield FileManager.fileExists(path))
+            return;
+          var oldData = (yield MMKVManager.getItem(store)) ?? defaultStr;
+          if (oldData === "!!LARGE_VALUE!!") {
+            var cachePath = `${FileManager.getConstants().CacheDirPath}/mmkv/${store}`;
+            if (yield FileManager.fileExists(cachePath)) {
+              oldData = yield FileManager.readFile(cachePath, "utf8");
+            } else {
+              console.log(`${store}: Experienced data loss :(`);
+              oldData = defaultStr;
+            }
+          }
+          try {
+            JSON.parse(oldData);
+          } catch (e) {
+            console.error(`${store} had an unparseable data while migrating`);
+            oldData = defaultStr;
+          }
+          yield FileManager.writeFile("documents", filePathFixer(mmkvPath), oldData, "utf8");
+          if ((yield MMKVManager.getItem(store)) !== null) {
+            MMKVManager.removeItem(store);
+            console.log(`Successfully migrated ${store} store from MMKV storage to fs`);
+          }
+        })());
+      };
+      createFileBackend = (file, defaultData = {}, migratePromise) => {
+        return {
+          get: /* @__PURE__ */ _async_to_generator(function* () {
+            yield migratePromise;
+            var path = `${FileManager.getConstants().DocumentsDirPath}/${file}`;
+            if (yield FileManager.fileExists(path)) {
+              var content = yield FileManager.readFile(path, "utf8");
+              try {
+                return JSON.parse(content);
+              } catch (e) {
+              }
+            }
+            yield FileManager.writeFile("documents", filePathFixer(file), JSON.stringify(defaultData), "utf8");
+            return JSON.parse(yield FileManager.readFile(path, "utf8"));
+          }),
+          set: /* @__PURE__ */ function() {
+            var _ref = _async_to_generator(function* (data) {
+              yield migratePromise;
+              yield FileManager.writeFile("documents", filePathFixer(file), JSON.stringify(data), "utf8");
+            });
+            return function(data) {
+              return _ref.apply(this, arguments);
+            };
+          }()
+        };
+      };
     }
   });
 
@@ -1464,33 +1473,33 @@
   __export(constants_exports, {
     BUNNY_PROXY_PREFIX: () => BUNNY_PROXY_PREFIX,
     DISCORD_SERVER: () => DISCORD_SERVER,
-    DISCORD_SERVER_ID: () => DISCORD_SERVER_ID,
     GITHUB: () => GITHUB,
     HTTP_REGEX: () => HTTP_REGEX,
     HTTP_REGEX_MULTI: () => HTTP_REGEX_MULTI,
     OFFICIAL_PLUGINS_REPO_URL: () => OFFICIAL_PLUGINS_REPO_URL,
     OLD_BUNNY_PROXY_PREFIX: () => OLD_BUNNY_PROXY_PREFIX,
-    PLUGINS_CHANNEL_ID: () => PLUGINS_CHANNEL_ID,
-    THEMES_CHANNEL_ID: () => THEMES_CHANNEL_ID,
-    VD_PROXY_PREFIX: () => VD_PROXY_PREFIX
+    VD_DISCORD_SERVER_ID: () => VD_DISCORD_SERVER_ID,
+    VD_PLUGINS_CHANNEL_ID: () => VD_PLUGINS_CHANNEL_ID,
+    VD_PROXY_PREFIX: () => VD_PROXY_PREFIX,
+    VD_THEMES_CHANNEL_ID: () => VD_THEMES_CHANNEL_ID
   });
-  var DISCORD_SERVER, GITHUB, HTTP_REGEX, HTTP_REGEX_MULTI, VD_PROXY_PREFIX, BUNNY_PROXY_PREFIX, OLD_BUNNY_PROXY_PREFIX, OFFICIAL_PLUGINS_REPO_URL, DISCORD_SERVER_ID, PLUGINS_CHANNEL_ID, THEMES_CHANNEL_ID;
+  var DISCORD_SERVER, GITHUB, HTTP_REGEX, HTTP_REGEX_MULTI, BUNNY_PROXY_PREFIX, OLD_BUNNY_PROXY_PREFIX, OFFICIAL_PLUGINS_REPO_URL, VD_PROXY_PREFIX, VD_DISCORD_SERVER_ID, VD_PLUGINS_CHANNEL_ID, VD_THEMES_CHANNEL_ID;
   var init_constants = __esm({
     "src/lib/utils/constants.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
-      DISCORD_SERVER = "https://discord.gg/XjYgWXHb9Q";
-      GITHUB = "https://github.com/felitendo";
+      DISCORD_SERVER = "https://discord.gg/DRCzRpu3vG";
+      GITHUB = "https://github.com/Felocord";
       HTTP_REGEX = /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)$/;
       HTTP_REGEX_MULTI = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&//=]*)/g;
-      VD_PROXY_PREFIX = "https://vd-plugins.github.io/proxy";
       BUNNY_PROXY_PREFIX = "https://bn-plugins.github.io/vd-proxy";
       OLD_BUNNY_PROXY_PREFIX = "https://felocord-mod.github.io/plugins-proxy";
       OFFICIAL_PLUGINS_REPO_URL = "https://bn-plugins.github.io/dist/repo.json";
-      DISCORD_SERVER_ID = "1015931589865246730";
-      PLUGINS_CHANNEL_ID = "1091880384561684561";
-      THEMES_CHANNEL_ID = "1091880434939482202";
+      VD_PROXY_PREFIX = "https://vd-plugins.github.io/proxy";
+      VD_DISCORD_SERVER_ID = "1015931589865246730";
+      VD_PLUGINS_CHANNEL_ID = "1091880384561684561";
+      VD_THEMES_CHANNEL_ID = "1091880434939482202";
     }
   });
 
@@ -1524,21 +1533,22 @@
   });
 
   // src/lib/utils/findInReactTree.ts
-  var findInReactTree;
+  function findInReactTree(tree, filter) {
+    return findInTree(tree, filter, {
+      walkable: [
+        "props",
+        "children",
+        "child",
+        "sibling"
+      ]
+    });
+  }
   var init_findInReactTree = __esm({
     "src/lib/utils/findInReactTree.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_utils();
-      findInReactTree = (tree, filter) => findInTree(tree, filter, {
-        walkable: [
-          "props",
-          "children",
-          "child",
-          "sibling"
-        ]
-      });
     }
   });
 
@@ -1581,17 +1591,18 @@
       }
     }
   }
-  var findInTree;
+  function findInTree(tree, filter, { walkable = [], ignore = [], maxDepth = 100 } = {}) {
+    return treeSearch(tree, filter, {
+      walkable,
+      ignore,
+      maxDepth
+    }, 0);
+  }
   var init_findInTree = __esm({
     "src/lib/utils/findInTree.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
-      findInTree = (tree, filter, { walkable = [], ignore = [], maxDepth = 100 } = {}) => treeSearch(tree, filter, {
-        walkable,
-        ignore,
-        maxDepth
-      }, 0);
     }
   });
 
@@ -1604,8 +1615,8 @@
     var value;
     Object.defineProperty(targetAsAny, property, {
       get: () => value,
-      set(v) {
-        value = cb(v) ?? v;
+      set(v2) {
+        value = cb(v2) ?? v2;
       },
       configurable: true,
       enumerable: false
@@ -1643,18 +1654,18 @@
   // src/lib/utils/logger.ts
   var logger_exports = {};
   __export(logger_exports, {
-    DiscordLogger: () => DiscordLogger,
+    LoggerClass: () => LoggerClass,
     logger: () => logger
   });
-  var DiscordLogger, logger;
+  var LoggerClass, logger;
   var init_logger = __esm({
     "src/lib/utils/logger.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_wrappers();
-      DiscordLogger = findByNameLazy("Logger");
-      logger = new DiscordLogger("Felocord");
+      LoggerClass = findByNameLazy("Logger");
+      logger = new LoggerClass("Felocord");
     }
   });
 
@@ -1691,7 +1702,6 @@
   // src/lib/utils/index.ts
   var utils_exports = {};
   __export(utils_exports, {
-    Emitter: () => Emitter,
     constants: () => constants_exports,
     cyrb64: () => cyrb64,
     findInReactTree: () => findInReactTree,
@@ -1709,7 +1719,6 @@
       init_promiseAllSettled();
       init_constants();
       init_cyrb64();
-      init_Emitter();
       init_findInReactTree();
       init_findInTree();
       init_hookDefineProperty();
@@ -1729,7 +1738,7 @@
     }
   });
 
-  // src/lib/themes/index.ts
+  // src/lib/addons/themes/index.ts
   var themes_exports = {};
   __export(themes_exports, {
     applyTheme: () => applyTheme,
@@ -1758,7 +1767,7 @@
   }
   function patchChatBackground() {
     var patches2 = [
-      after("default", MessagesWrapperConnected, (_, ret) => enabled ? React.createElement(import_react_native2.ImageBackground, {
+      after("default", MessagesWrapperConnected, (_2, ret) => enabled ? React.createElement(import_react_native2.ImageBackground, {
         style: {
           flex: 1,
           height: "100%"
@@ -1769,10 +1778,10 @@
         blurRadius: typeof currentTheme?.data?.background?.blur === "number" ? currentTheme?.data?.background?.blur : 0,
         children: ret
       }) : ret),
-      after("render", MessagesWrapper.prototype, (_, ret) => {
+      after("render", MessagesWrapper.prototype, (_2, ret) => {
         if (!enabled || !currentTheme?.data?.background?.url)
           return;
-        var Messages = findInReactTree(ret, (x) => x && "HACK_fixModalInteraction" in x.props && x?.props?.style);
+        var Messages = findInReactTree(ret, (x2) => x2 && "HACK_fixModalInteraction" in x2.props && x2?.props?.style);
         if (Messages) {
           Messages.props.style = [
             Messages.props.style,
@@ -1784,7 +1793,7 @@
           console.error("Didn't find Messages when patching MessagesWrapper!");
       })
     ];
-    return () => patches2.forEach((x) => x());
+    return () => patches2.forEach((x2) => x2());
   }
   function normalizeToHex(colorString) {
     if (import_chroma_js.default.valid(colorString))
@@ -2072,15 +2081,15 @@
   }
   var import_chroma_js, import_react_native2, color, mmkvStorage, appearanceManager, ThemeStore, formDividerModule, MessagesWrapperConnected, MessagesWrapper, isThemeModule, themes, semanticAlternativeMap, origRawColor, inc, vdKey, vdThemeFallback, enabled, currentTheme, storageResolved, discordThemes;
   var init_themes = __esm({
-    "src/lib/themes/index.ts"() {
+    "src/lib/addons/themes/index.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_async_to_generator();
+      init_storage();
       init_loader();
       init_modules();
       init_patcher();
-      init_storage();
       init_utils();
       init_lazy();
       init_filters();
@@ -2132,26 +2141,6 @@
   });
 
   // src/lib/api/native/loader.ts
-  var loader_exports = {};
-  __export(loader_exports, {
-    getLoaderConfigPath: () => getLoaderConfigPath,
-    getLoaderIdentity: () => getLoaderIdentity,
-    getLoaderName: () => getLoaderName,
-    getLoaderVersion: () => getLoaderVersion,
-    getReactDevToolsProp: () => getReactDevToolsProp,
-    getReactDevToolsVersion: () => getReactDevToolsVersion,
-    getStoredTheme: () => getStoredTheme,
-    getSysColors: () => getSysColors,
-    getThemeFilePath: () => getThemeFilePath,
-    getVendettaLoaderIdentity: () => getVendettaLoaderIdentity,
-    isFontSupported: () => isFontSupported,
-    isLoaderConfigSupported: () => isLoaderConfigSupported,
-    isPyonLoader: () => isPyonLoader,
-    isReactDevToolsPreloaded: () => isReactDevToolsPreloaded,
-    isSysColorsSupported: () => isSysColorsSupported,
-    isThemeSupported: () => isThemeSupported,
-    isVendettaLoader: () => isVendettaLoader
-  });
   function isVendettaLoader() {
     return vendettaLoaderIdentity != null;
   }
@@ -2197,14 +2186,6 @@
       configurable: true
     });
     return loader;
-  }
-  function getLoaderIdentity() {
-    if (isPyonLoader()) {
-      return pyonLoaderIdentity;
-    } else if (isVendettaLoader()) {
-      return getVendettaLoaderIdentity();
-    }
-    return null;
   }
   function getVendettaLoaderIdentity() {
     if (globalThis.__vendetta_loader)
@@ -2345,8 +2326,8 @@
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
-      init_loader();
       init_storage();
+      init_loader();
       settings = wrapSync(createStorage(createMMKVBackend("VENDETTA_SETTINGS")));
       loaderConfig = wrapSync(createStorage(createFileBackend(getLoaderConfigPath(), {
         customLoadUrl: {
@@ -2527,7 +2508,7 @@
       "customDirectEventTypes",
       "register",
       "get"
-    ].every((x) => moduleExports[x])) {
+    ].every((x2) => moduleExports[x2])) {
       instead2("register", moduleExports, (args, origFunc) => {
         try {
           return origFunc(...args);
@@ -2863,6 +2844,172 @@
     }
   });
 
+  // shims/jsxRuntime.ts
+  var jsxRuntime_exports = {};
+  __export(jsxRuntime_exports, {
+    Fragment: () => Fragment,
+    jsx: () => jsx,
+    jsxs: () => jsxs
+  });
+  function unproxyFirstArg(args) {
+    if (!args[0]) {
+      throw new Error("The first argument (Component) is falsy. Ensure that you are passing a valid component.");
+    }
+    var factory = getProxyFactory(args[0]);
+    if (factory)
+      args[0] = factory();
+    return args;
+  }
+  var jsxRuntime, Fragment, jsx, jsxs;
+  var init_jsxRuntime = __esm({
+    "shims/jsxRuntime.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_lazy();
+      init_wrappers();
+      jsxRuntime = findByPropsLazy("jsx", "jsxs", "Fragment");
+      Fragment = Symbol.for("react.fragment");
+      jsx = (...args) => jsxRuntime.jsx(...unproxyFirstArg(args));
+      jsxs = (...args) => jsxRuntime.jsxs(...unproxyFirstArg(args));
+    }
+  });
+
+  // src/core/ui/reporter/utils/isStack.tsx
+  function isComponentStack(error) {
+    return "componentStack" in error && typeof error.componentStack === "string";
+  }
+  function hasStack(error) {
+    return !!error.stack;
+  }
+  var init_isStack = __esm({
+    "src/core/ui/reporter/utils/isStack.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+    }
+  });
+
+  // src/metro/common/components.ts
+  var components_exports = {};
+  __export(components_exports, {
+    ActionSheet: () => ActionSheet,
+    ActionSheetRow: () => ActionSheetRow,
+    BottomSheetTitleHeader: () => BottomSheetTitleHeader,
+    Button: () => Button,
+    Card: () => Card,
+    CompatButton: () => CompatButton,
+    CompatSegmentedControl: () => CompatSegmentedControl,
+    FlashList: () => FlashList,
+    FloatingActionButton: () => FloatingActionButton,
+    FormCheckbox: () => FormCheckbox,
+    FormRadio: () => FormRadio,
+    FormSwitch: () => FormSwitch,
+    Forms: () => Forms,
+    HelpMessage: () => HelpMessage,
+    IconButton: () => IconButton,
+    LegacyAlert: () => LegacyAlert,
+    LegacyForm: () => LegacyForm,
+    LegacyFormArrow: () => LegacyFormArrow,
+    LegacyFormCTA: () => LegacyFormCTA,
+    LegacyFormCTAButton: () => LegacyFormCTAButton,
+    LegacyFormCardSection: () => LegacyFormCardSection,
+    LegacyFormCheckbox: () => LegacyFormCheckbox,
+    LegacyFormCheckboxRow: () => LegacyFormCheckboxRow,
+    LegacyFormCheckmark: () => LegacyFormCheckmark,
+    LegacyFormDivider: () => LegacyFormDivider,
+    LegacyFormHint: () => LegacyFormHint,
+    LegacyFormIcon: () => LegacyFormIcon,
+    LegacyFormInput: () => LegacyFormInput,
+    LegacyFormLabel: () => LegacyFormLabel,
+    LegacyFormRadio: () => LegacyFormRadio,
+    LegacyFormRadioGroup: () => LegacyFormRadioGroup,
+    LegacyFormRadioRow: () => LegacyFormRadioRow,
+    LegacyFormRow: () => LegacyFormRow,
+    LegacyFormSection: () => LegacyFormSection,
+    LegacyFormSelect: () => LegacyFormSelect,
+    LegacyFormSliderRow: () => LegacyFormSliderRow,
+    LegacyFormSubLabel: () => LegacyFormSubLabel,
+    LegacyFormSwitch: () => LegacyFormSwitch,
+    LegacyFormSwitchRow: () => LegacyFormSwitchRow,
+    LegacyFormTernaryCheckBox: () => LegacyFormTernaryCheckBox,
+    LegacyFormText: () => LegacyFormText,
+    LegacyFormTitle: () => LegacyFormTitle,
+    PressableScale: () => PressableScale,
+    RedesignCompat: () => RedesignCompat,
+    RowButton: () => RowButton,
+    SafeAreaProvider: () => SafeAreaProvider,
+    SafeAreaView: () => SafeAreaView,
+    SegmentedControl: () => SegmentedControl,
+    SegmentedControlPages: () => SegmentedControlPages,
+    Stack: () => Stack,
+    TableCheckbox: () => TableCheckbox,
+    TableRadio: () => TableRadio,
+    TableRow: () => TableRow,
+    TableRowGroup: () => TableRowGroup,
+    TableRowIcon: () => TableRowIcon,
+    TableRowTrailingText: () => TableRowTrailingText,
+    TableSwitch: () => TableSwitch,
+    TableSwitchRow: () => TableSwitchRow,
+    Text: () => Text,
+    TextInput: () => TextInput,
+    TwinButtons: () => TwinButtons,
+    useSafeAreaInsets: () => useSafeAreaInsets,
+    useSegmentedControlState: () => useSegmentedControlState
+  });
+  var bySingularProp, findSingular, findProp, LegacyAlert, CompatButton, HelpMessage, SafeAreaView, SafeAreaProvider, useSafeAreaInsets, ActionSheetRow, Button, TwinButtons, IconButton, RowButton, PressableScale, TableRow, TableRowIcon, TableRowTrailingText, TableRowGroup, TableSwitchRow, TableSwitch, TableRadio, TableCheckbox, FormSwitch, FormRadio, FormCheckbox, Card, RedesignCompat, Stack, TextInput, SegmentedControl, SegmentedControlPages, useSegmentedControlState, CompatSegmentedControl, FloatingActionButton, ActionSheet, BottomSheetTitleHeader, textsModule, Text, Forms, LegacyForm, LegacyFormArrow, LegacyFormCTA, LegacyFormCTAButton, LegacyFormCardSection, LegacyFormCheckbox, LegacyFormCheckboxRow, LegacyFormCheckmark, LegacyFormDivider, LegacyFormHint, LegacyFormIcon, LegacyFormInput, LegacyFormLabel, LegacyFormRadio, LegacyFormRadioGroup, LegacyFormRadioRow, LegacyFormRow, LegacyFormSection, LegacyFormSelect, LegacyFormSliderRow, LegacyFormSubLabel, LegacyFormSwitch, LegacyFormSwitchRow, LegacyFormTernaryCheckBox, LegacyFormText, LegacyFormTitle, FlashList;
+  var init_components = __esm({
+    "src/metro/common/components.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_lazy();
+      init_factories();
+      init_finders();
+      init_wrappers();
+      bySingularProp = createFilterDefinition(([prop], m2) => m2[prop] && Object.keys(m2).length === 1, (prop) => `felocord.metro.common.components.bySingularProp(${prop})`);
+      findSingular = (prop) => proxyLazy(() => findExports(bySingularProp(prop))?.[prop]);
+      findProp = (prop) => proxyLazy(() => findByProps(prop)[prop]);
+      LegacyAlert = findByDisplayNameLazy("FluxContainer(Alert)");
+      CompatButton = findByPropsLazy("Looks", "Colors", "Sizes");
+      HelpMessage = findByNameLazy("HelpMessage");
+      ({ SafeAreaView, SafeAreaProvider, useSafeAreaInsets } = lazyDestructure(() => findByProps("useSafeAreaInsets")));
+      ActionSheetRow = findProp("ActionSheetRow");
+      Button = findSingular("Button");
+      TwinButtons = findProp("TwinButtons");
+      IconButton = findSingular("IconButton");
+      RowButton = findProp("RowButton");
+      PressableScale = findProp("PressableScale");
+      TableRow = findProp("TableRow");
+      TableRowIcon = findProp("TableRowIcon");
+      TableRowTrailingText = findProp("TableRowTrailingText");
+      TableRowGroup = findProp("TableRowGroup");
+      TableSwitchRow = findProp("TableSwitchRow");
+      TableSwitch = findSingular("FormSwitch");
+      TableRadio = findSingular("FormRadio");
+      TableCheckbox = findSingular("FormCheckbox");
+      FormSwitch = findSingular("FormSwitch");
+      FormRadio = findSingular("FormRadio");
+      FormCheckbox = findSingular("FormCheckbox");
+      Card = findProp("Card");
+      RedesignCompat = proxyLazy(() => findByProps("RedesignCompat").RedesignCompat);
+      Stack = findProp("Stack");
+      TextInput = findSingular("TextInput");
+      SegmentedControl = findProp("SegmentedControl");
+      SegmentedControlPages = findProp("SegmentedControlPages");
+      useSegmentedControlState = findSingular("useSegmentedControlState");
+      CompatSegmentedControl = findProp("CompatSegmentedControl");
+      FloatingActionButton = findProp("FloatingActionButton");
+      ActionSheet = findProp("ActionSheet");
+      BottomSheetTitleHeader = findProp("BottomSheetTitleHeader");
+      textsModule = findByPropsLazy("Text", "LegacyText");
+      Text = proxyLazy(() => textsModule.Text);
+      Forms = findByPropsLazy("Form", "FormSection");
+      ({ Form: LegacyForm, FormArrow: LegacyFormArrow, FormCTA: LegacyFormCTA, FormCTAButton: LegacyFormCTAButton, FormCardSection: LegacyFormCardSection, FormCheckbox: LegacyFormCheckbox, FormCheckboxRow: LegacyFormCheckboxRow, FormCheckmark: LegacyFormCheckmark, FormDivider: LegacyFormDivider, FormHint: LegacyFormHint, FormIcon: LegacyFormIcon, FormInput: LegacyFormInput, FormLabel: LegacyFormLabel, FormRadio: LegacyFormRadio, FormRadioGroup: LegacyFormRadioGroup, FormRadioRow: LegacyFormRadioRow, FormRow: LegacyFormRow, FormSection: LegacyFormSection, FormSelect: LegacyFormSelect, FormSliderRow: LegacyFormSliderRow, FormSubLabel: LegacyFormSubLabel, FormSwitch: LegacyFormSwitch, FormSwitchRow: LegacyFormSwitchRow, FormTernaryCheckBox: LegacyFormTernaryCheckBox, FormText: LegacyFormText, FormTitle: LegacyFormTitle } = lazyDestructure(() => Forms));
+      FlashList = findProp("FlashList");
+    }
+  });
+
   // src/metro/common/index.ts
   var common_exports = {};
   __export(common_exports, {
@@ -2875,6 +3022,7 @@
     channels: () => channels,
     clipboard: () => clipboard,
     commands: () => commands,
+    components: () => components_exports,
     constants: () => constants,
     i18n: () => i18n,
     invites: () => invites,
@@ -2893,6 +3041,7 @@
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_wrappers();
+      init_components();
       constants = findByPropsLazy("Fonts", "Permissions");
       channels = findByPropsLazy("getVoiceChannelId");
       i18n = findByPropsLazy("Messages");
@@ -2912,39 +3061,6 @@
       FluxDispatcher = findByProps("_interceptors");
       React2 = window.React = findByPropsLazy("createElement");
       ReactNative = window.ReactNative = findByPropsLazy("AppRegistry");
-    }
-  });
-
-  // globals:moment
-  var require_moment = __commonJS({
-    "globals:moment"(exports, module) {
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      module.exports = require_depsModule()["moment"];
-    }
-  });
-
-  // src/core/fixes.ts
-  function onDispatch({ locale }) {
-    try {
-      import_moment.default.locale(locale.toLowerCase());
-    } catch (e) {
-      logger.error("Failed to fix timestamps...", e);
-    }
-    FluxDispatcher.unsubscribe("I18N_LOAD_SUCCESS", onDispatch);
-  }
-  var import_moment, fixes_default;
-  var init_fixes = __esm({
-    "src/core/fixes.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_logger();
-      init_common();
-      import_moment = __toESM(require_moment());
-      fixes_default = () => {
-        FluxDispatcher.subscribe("I18N_LOAD_SUCCESS", onDispatch);
-      };
     }
   });
 
@@ -3126,667 +3242,6 @@
     }
   });
 
-  // src/assets/icons/felitendo.png
-  var felitendo_default;
-  var init_felitendo = __esm({
-    "src/assets/icons/felitendo.png"() {
-      felitendo_default = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAABoBJREFUeF7lW1nIVlUUXasom80kijJKaVQzGtTUjCJteNBmeqigssnIpDIqwmw0GqhQi4iw8SEaHtKgMpNKM7SiyUZpLppoTi0rd2f9nCu36/2+79zxv/5t8MV/n333WWefffb0EQ0iM+sH4AEAowG8CGAqycVVqsgqhWeVbWavAtg/tu4vABNIPphVVih/YwAws2EAlrRQfChJgVM6NQmARwGc0GKHX5PcofTdA2gSAJ8A2KXNJueQPLpsEJoEwI8A+rTZ4GrnIAeQ/KpMEJoEwCoAm3TY3DKSezcKADPbCMDWADYEIK/9B4CVJC2LomYWwv8PgC1JCqxSqJAFmNlOAF6PAfA3ACn3MYBLSD4bqmUgABI3l+T4ULmd+IoCcDeAs9p8RI5NPDNJrminTAYAZAVbkJSlFaaiALwJYEiAFh8CuJHk7Fa8ZqaNbRAgSyzjSc4N5G3LVhQAmfiYDIosBXAGyXeSa8xMJ9orUNb7AAZm9TNpsosCMNnd/9sDlY7Y/gRwAYDZJOUzusjMfvK+JFRcX5J6OgtRUQB2B/BBDg3k8ZeQHBED4AsASoZCaTTJRaHMrfiKAqD1jwM4NqcinwE4mOTnZiYgBWgozSN5RChzJQB40x0A4KMCivwO4GQAFwI4JIMcRYa9i74GhSwgZr5XuWs8LYPyaazPAMh6ojvLeop8tywA5L0V/FSSsbXZ4Eh3DV7udgD8VdgMwK8+JC6iU5a115GcmmVBkrcUC4hdhYPcPX6+RhAWkDysMQB4SzgXwB0Zoroi+q8iKcvLTaVaQMwSZgGYWBMIfUj+nBeBSgDwljADwHk1XIdCL0FlAMRAOL/i0tsgku82zgI8AMruLgNwfV4FA9btQ/KtAL5UlkotIOYTjgdwr6o5eRVts244SWWZuagWALw1DFUGCGBwLk1bLxpG8pW8MmsDwIPQ25W+7wNwTF6FU9bJ2U7L+xLUCkDsSij5keLblASEagmjSL6XVV63AOCtQSVw3d2yytxr3JN7LUklZsHUnQAMcnUE1RRVTi+TXgIwjqSsoiN1CwBmtqvzA28A2LyjhvkYlCKr9vhcp+W1A2BmewB4AcB2nZQr+Hc1aaaQlK9pSbUC4E9eLfCynF8IRoo/JpJUMXYdqgUAM9N3RgFYGKJxDh71FK5WAwbAvgAeShRnPgWwZxoIdQFwEwCV0DfOsbmQJWPi993MZGGqMsdT5e9VdE3GC5UCYGY69ehUQjaSh0dv/5B4j0FCXJ8hrWexHMAIkj9EH6oEADNTZUjNj+MqeOaSIM0nOTb5n2amStH8FEQVNh8eWcJaAHybe7gfU9kLgEzmbd/91VCCujArXdd3hdA2M73fKobKzDTYIK+uRsel7tT75jnKnGvUUtuWpMrra8nMNG12aguZatjKMa7pAsDMtnK9tkdylKVz6lz6snsATFKPwB+M+gtppx//sBoyCyMAkuNppWtYg0CVxeT4tvfPbKcI8zHXpD2RZnaOW3RXDQo27ROrSfYSAGowylv/30iR4qYCQBFSVe9zk0Fd5GKH0QJAPfpO96XJG8mjmyJHOcHFAuA1APvlkbIerzmN5P3SXwBc7IaOblmPN5NVdaXK/RUDRACoTqcOq4KfptA37l1XuKpma0QKrlQ/2LEEJY8i+XQXAD4Q6u+uwZwKKrbtdNWYjMboNDClf0qTl+ktb5W6RsLMbDc/naZK80Cvt/YQSvruYJIr46GwanQTAJzph5Y1/Vk2aVZQCck8xR4kpUgpZGYCQDHNOK9/p6bpRSRvS02GzEx1tZGlaAbopH8DcDnJO0uS2VaMmWnzk1xz9hrXldIob9o+ldf0W+cPZiafkLvbmtDsSY3MytQ7mXUVwJiZrFozTKoK6QcZSVrXAszsSABPFVRIs4MzyjTxgvoo4TsAwCm+Yy2rEC1PswC9CAfm+KBMSsWPW0l+l2N9LUt8UfYKf8Vn/gcAM9MT82VGTeTYngBwdqeB6Ixya2FPAnCSKx4+HPhlBRJ6vsaS/DZwTePYkgCozx7SqpJXl69YmqzFNW6HHRSKxwGhc79XApgV2npqOiBxAE73/ftWOquRqbJT7mGEJoIRhcIaZVGjMm14QT+BucHVDKa7oUSlkT2KIgAUT6/zIwbXYFTmpLxZU909kiIAprhM6+bEDqf7Hy93pY09lSIAFriO7aF+k7/4aYs0i+hxOEQAqIGgNrJ+iDS5p3j4kNP6F9f7+CyBdXonAAAAAElFTkSuQmCC";
-    }
-  });
-
-  // shims/jsxRuntime.ts
-  function unproxyFirstArg(args) {
-    var factory = getProxyFactory(args[0]);
-    if (factory)
-      args[0] = factory();
-    return args;
-  }
-  var jsxRuntime, Fragment, jsx, jsxs;
-  var init_jsxRuntime = __esm({
-    "shims/jsxRuntime.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_lazy();
-      init_wrappers();
-      jsxRuntime = findByPropsLazy("jsx", "jsxs", "Fragment");
-      Fragment = Symbol.for("react.fragment");
-      jsx = (...args) => jsxRuntime.jsx(...unproxyFirstArg(args));
-      jsxs = (...args) => jsxRuntime.jsxs(...unproxyFirstArg(args));
-    }
-  });
-
-  // src/metro/common/components.ts
-  var bySingularProp, findSingular, findProp, LegacyAlert, CompatButton, HelpMessage, SafeAreaView, ActionSheetRow, Button, TwinButtons, IconButton, RowButton, PressableScale, TableRow, TableRowIcon, TableRowTrailingText, TableRowGroup, TableSwitchRow, TableSwitch, TableRadio, TableCheckbox, FormSwitch, FormRadio, FormCheckbox, Card, RedesignCompat, Stack, TextInput, SegmentedControl, SegmentedControlPages, useSegmentedControlState, CompatSegmentedControl, FloatingActionButton, ActionSheet, BottomSheetTitleHeader, textsModule, Text, Forms, LegacyForm, LegacyFormArrow, LegacyFormCTA, LegacyFormCTAButton, LegacyFormCardSection, LegacyFormCheckbox, LegacyFormCheckboxRow, LegacyFormCheckmark, LegacyFormDivider, LegacyFormHint, LegacyFormIcon, LegacyFormInput, LegacyFormLabel, LegacyFormRadio, LegacyFormRadioGroup, LegacyFormRadioRow, LegacyFormRow, LegacyFormSection, LegacyFormSelect, LegacyFormSliderRow, LegacyFormSubLabel, LegacyFormSwitch, LegacyFormSwitchRow, LegacyFormTernaryCheckBox, LegacyFormText, LegacyFormTitle, FlashList;
-  var init_components = __esm({
-    "src/metro/common/components.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_lazy();
-      init_factories();
-      init_finders();
-      init_wrappers();
-      bySingularProp = createFilterDefinition(([prop], m) => m[prop] && Object.keys(m).length === 1, (prop) => `felocord.metro.common.components.bySingularProp(${prop})`);
-      findSingular = (prop) => proxyLazy(() => findExports(bySingularProp(prop))?.[prop]);
-      findProp = (prop) => proxyLazy(() => findByProps(prop)[prop]);
-      LegacyAlert = findByDisplayNameLazy("FluxContainer(Alert)");
-      CompatButton = findByPropsLazy("Looks", "Colors", "Sizes");
-      HelpMessage = findByNameLazy("HelpMessage");
-      SafeAreaView = proxyLazy(() => findByProps("useSafeAreaInsets").SafeAreaView);
-      ActionSheetRow = findProp("ActionSheetRow");
-      Button = findSingular("Button");
-      TwinButtons = findProp("TwinButtons");
-      IconButton = findSingular("IconButton");
-      RowButton = findProp("RowButton");
-      PressableScale = findProp("PressableScale");
-      TableRow = findProp("TableRow");
-      TableRowIcon = findProp("TableRowIcon");
-      TableRowTrailingText = findProp("TableRowTrailingText");
-      TableRowGroup = findProp("TableRowGroup");
-      TableSwitchRow = findProp("TableSwitchRow");
-      TableSwitch = findSingular("FormSwitch");
-      TableRadio = findSingular("FormRadio");
-      TableCheckbox = findSingular("FormCheckbox");
-      FormSwitch = findSingular("FormSwitch");
-      FormRadio = findSingular("FormRadio");
-      FormCheckbox = findSingular("FormCheckbox");
-      Card = findProp("Card");
-      RedesignCompat = proxyLazy(() => findByProps("RedesignCompat").RedesignCompat);
-      Stack = findProp("Stack");
-      TextInput = findSingular("TextInput");
-      SegmentedControl = findProp("SegmentedControl");
-      SegmentedControlPages = findProp("SegmentedControlPages");
-      useSegmentedControlState = findSingular("useSegmentedControlState");
-      CompatSegmentedControl = findProp("CompatSegmentedControl");
-      FloatingActionButton = findProp("FloatingActionButton");
-      ActionSheet = findProp("ActionSheet");
-      BottomSheetTitleHeader = findProp("BottomSheetTitleHeader");
-      textsModule = findByPropsLazy("Text", "LegacyText");
-      Text = proxyLazy(() => textsModule.Text);
-      Forms = findByPropsLazy("Form", "FormSection");
-      ({ Form: LegacyForm, FormArrow: LegacyFormArrow, FormCTA: LegacyFormCTA, FormCTAButton: LegacyFormCTAButton, FormCardSection: LegacyFormCardSection, FormCheckbox: LegacyFormCheckbox, FormCheckboxRow: LegacyFormCheckboxRow, FormCheckmark: LegacyFormCheckmark, FormDivider: LegacyFormDivider, FormHint: LegacyFormHint, FormIcon: LegacyFormIcon, FormInput: LegacyFormInput, FormLabel: LegacyFormLabel, FormRadio: LegacyFormRadio, FormRadioGroup: LegacyFormRadioGroup, FormRadioRow: LegacyFormRadioRow, FormRow: LegacyFormRow, FormSection: LegacyFormSection, FormSelect: LegacyFormSelect, FormSliderRow: LegacyFormSliderRow, FormSubLabel: LegacyFormSubLabel, FormSwitch: LegacyFormSwitch, FormSwitchRow: LegacyFormSwitchRow, FormTernaryCheckBox: LegacyFormTernaryCheckBox, FormText: LegacyFormText, FormTitle: LegacyFormTitle } = lazyDestructure(() => Forms));
-      FlashList = findProp("FlashList");
-    }
-  });
-
-  // src/lib/ui/color.ts
-  var color_exports = {};
-  __export(color_exports, {
-    isSemanticColor: () => isSemanticColor,
-    rawColors: () => rawColors,
-    resolveSemanticColor: () => resolveSemanticColor,
-    semanticColors: () => semanticColors
-  });
-  function isSemanticColor(sym) {
-    return colorResolver.isSemanticColor(sym);
-  }
-  function resolveSemanticColor(sym, theme = ThemeStore2.theme) {
-    return colorResolver.resolveSemanticColor(theme, sym);
-  }
-  var semanticColors, rawColors, ThemeStore2, colorResolver;
-  var init_color = __esm({
-    "src/lib/ui/color.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_themes();
-      init_common();
-      init_wrappers();
-      semanticColors = color?.default?.colors ?? constants?.ThemeColorMap;
-      rawColors = color?.default?.unsafe_rawColors ?? constants?.Colors;
-      ThemeStore2 = findByStoreNameLazy("ThemeStore");
-      colorResolver = color.default.meta ??= color.default.internal;
-    }
-  });
-
-  // src/lib/ui/styles.ts
-  var styles_exports = {};
-  __export(styles_exports, {
-    TextStyleSheet: () => TextStyleSheet,
-    createStyles: () => createStyles,
-    createThemedStyleSheet: () => createThemedStyleSheet
-  });
-  function createStyles(sheet) {
-    return proxyLazy(() => CompatfulRedesign.createStyles(sheet));
-  }
-  function createThemedStyleSheet(sheet) {
-    for (var key in sheet) {
-      sheet[key] = new Proxy(import_react_native3.StyleSheet.flatten(sheet[key]), {
-        get(target, prop, receiver) {
-          var res = Reflect.get(target, prop, receiver);
-          return isSemanticColor(res) ? resolveSemanticColor(res) : res;
-        }
-      });
-    }
-    return sheet;
-  }
-  var import_react_native3, CompatfulRedesign, TextStyleSheet;
-  var init_styles = __esm({
-    "src/lib/ui/styles.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_lazy();
-      init_wrappers();
-      init_color();
-      import_react_native3 = __toESM(require_react_native());
-      CompatfulRedesign = findByPropsLazy("createStyles");
-      ({ TextStyleSheet } = lazyDestructure(() => findByProps("TextStyleSheet")));
-    }
-  });
-
-  // src/lib/ui/components/Codeblock.tsx
-  function Codeblock({ selectable, style, children }) {
-    if (!selectable)
-      return /* @__PURE__ */ jsx(TextBasedCodeblock, {
-        style,
-        children
-      });
-    return import_react_native4.Platform.select({
-      ios: /* @__PURE__ */ jsx(InputBasedCodeblock, {
-        style,
-        children
-      }),
-      default: /* @__PURE__ */ jsx(TextBasedCodeblock, {
-        style,
-        children,
-        selectable: true
-      })
-    });
-  }
-  var import_react_native4, useStyles, InputBasedCodeblock, TextBasedCodeblock;
-  var init_Codeblock = __esm({
-    "src/lib/ui/components/Codeblock.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_jsxRuntime();
-      init_common();
-      init_color();
-      init_styles();
-      import_react_native4 = __toESM(require_react_native());
-      useStyles = createStyles({
-        codeBlock: {
-          fontFamily: constants.Fonts.CODE_NORMAL,
-          fontSize: 12,
-          textAlignVertical: "center",
-          backgroundColor: semanticColors.BACKGROUND_SECONDARY,
-          color: semanticColors.TEXT_NORMAL,
-          borderWidth: 1,
-          borderRadius: 12,
-          borderColor: semanticColors.BACKGROUND_TERTIARY,
-          padding: 10
-        }
-      });
-      InputBasedCodeblock = ({ style, children }) => /* @__PURE__ */ jsx(import_react_native4.TextInput, {
-        editable: false,
-        multiline: true,
-        style: [
-          useStyles().codeBlock,
-          style && style
-        ],
-        value: children
-      });
-      TextBasedCodeblock = ({ selectable, style, children }) => /* @__PURE__ */ jsx(import_react_native4.Text, {
-        selectable,
-        style: [
-          useStyles().codeBlock,
-          style && style
-        ],
-        children
-      });
-    }
-  });
-
-  // src/lib/ui/components/ErrorBoundary.tsx
-  var import_react_native5, styles, _React_Component, ErrorBoundary;
-  var init_ErrorBoundary = __esm({
-    "src/lib/ui/components/ErrorBoundary.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_call_super();
-      init_class_call_check();
-      init_create_class();
-      init_define_property();
-      init_inherits();
-      init_jsxRuntime();
-      init_i18n();
-      init_common();
-      init_components();
-      init_components2();
-      init_styles();
-      import_react_native5 = __toESM(require_react_native());
-      styles = createThemedStyleSheet({
-        view: {
-          flex: 1,
-          flexDirection: "column",
-          margin: 10
-        },
-        title: {
-          fontSize: 20,
-          textAlign: "center",
-          marginBottom: 5
-        }
-      });
-      ErrorBoundary = /* @__PURE__ */ function(_superClass) {
-        "use strict";
-        _inherits(ErrorBoundary3, _superClass);
-        function ErrorBoundary3(props) {
-          _class_call_check(this, ErrorBoundary3);
-          var _this;
-          _this = _call_super(this, ErrorBoundary3, [
-            props
-          ]);
-          _this.state = {
-            hasErr: false
-          };
-          return _this;
-        }
-        _create_class(ErrorBoundary3, [
-          {
-            key: "render",
-            value: function render() {
-              if (!this.state.hasErr)
-                return this.props.children;
-              return /* @__PURE__ */ jsxs(import_react_native5.ScrollView, {
-                style: styles.view,
-                children: [
-                  /* @__PURE__ */ jsx(LegacyFormText, {
-                    style: styles.title,
-                    children: Strings.UH_OH
-                  }),
-                  /* @__PURE__ */ jsx(Codeblock, {
-                    selectable: true,
-                    style: {
-                      marginBottom: 5
-                    },
-                    children: this.state.error.name
-                  }),
-                  /* @__PURE__ */ jsx(Codeblock, {
-                    selectable: true,
-                    style: {
-                      marginBottom: 5
-                    },
-                    children: this.state.error.message
-                  }),
-                  this.state.error.stack && /* @__PURE__ */ jsx(import_react_native5.ScrollView, {
-                    style: {
-                      maxHeight: 420,
-                      marginBottom: 5
-                    },
-                    children: /* @__PURE__ */ jsx(Codeblock, {
-                      selectable: true,
-                      children: this.state.error.stack
-                    })
-                  }),
-                  /* @__PURE__ */ jsx(Button, {
-                    size: "md",
-                    variant: "destructive",
-                    onPress: () => this.setState({
-                      hasErr: false
-                    }),
-                    text: Strings.RETRY
-                  })
-                ]
-              });
-            }
-          }
-        ]);
-        return ErrorBoundary3;
-      }(_React_Component = React2.Component);
-      _define_property(ErrorBoundary, "getDerivedStateFromError", (error) => ({
-        hasErr: true,
-        error
-      }));
-    }
-  });
-
-  // src/lib/ui/components/Search.tsx
-  function SearchIcon() {
-    return /* @__PURE__ */ jsx(import_react_native6.Image, {
-      style: {
-        width: 16,
-        height: 16
-      },
-      source: findAssetId("search")
-    });
-  }
-  var import_react_native6, Search_default;
-  var init_Search = __esm({
-    "src/lib/ui/components/Search.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_jsxRuntime();
-      init_i18n();
-      init_assets();
-      init_components();
-      init_ErrorBoundary();
-      import_react_native6 = __toESM(require_react_native());
-      Search_default = ({ onChangeText, placeholder, style, isRound }) => {
-        var [query, setQuery] = React.useState("");
-        var onChange = (value) => {
-          setQuery(value);
-          onChangeText?.(value);
-        };
-        return /* @__PURE__ */ jsx(ErrorBoundary, {
-          children: /* @__PURE__ */ jsx(import_react_native6.View, {
-            style,
-            children: /* @__PURE__ */ jsx(TextInput, {
-              grow: true,
-              isClearable: true,
-              leadingIcon: SearchIcon,
-              placeholder: placeholder ?? Strings.SEARCH,
-              onChange,
-              returnKeyType: "search",
-              size: "md",
-              autoCapitalize: "none",
-              autoCorrect: false,
-              isRound,
-              value: query
-            })
-          })
-        });
-      };
-    }
-  });
-
-  // src/lib/ui/components/Summary.tsx
-  function Summary({ label, icon, noPadding = false, noAnimation = false, children }) {
-    var [hidden, setHidden] = React.useState(true);
-    return /* @__PURE__ */ jsxs(Fragment, {
-      children: [
-        /* @__PURE__ */ jsx(TableRow, {
-          label,
-          icon: icon && /* @__PURE__ */ jsx(TableRow.Icon, {
-            source: findAssetId(icon)
-          }),
-          trailing: /* @__PURE__ */ jsx(LegacyFormRow.Arrow, {
-            style: {
-              transform: [
-                {
-                  rotate: `${hidden ? 180 : 90}deg`
-                }
-              ]
-            }
-          }),
-          onPress: () => {
-            setHidden(!hidden);
-            if (!noAnimation)
-              import_react_native7.LayoutAnimation.configureNext(import_react_native7.LayoutAnimation.Presets.easeInEaseOut);
-          }
-        }),
-        !hidden && /* @__PURE__ */ jsx(Fragment, {
-          children: /* @__PURE__ */ jsx(import_react_native7.View, {
-            style: !noPadding && {
-              paddingHorizontal: 15
-            },
-            children
-          })
-        })
-      ]
-    });
-  }
-  var import_react_native7;
-  var init_Summary = __esm({
-    "src/lib/ui/components/Summary.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_jsxRuntime();
-      init_assets();
-      init_components();
-      import_react_native7 = __toESM(require_react_native());
-    }
-  });
-
-  // src/lib/ui/components/index.ts
-  var components_exports = {};
-  __export(components_exports, {
-    Codeblock: () => Codeblock,
-    ErrorBoundary: () => ErrorBoundary,
-    Search: () => Search_default,
-    Summary: () => Summary
-  });
-  var init_components2 = __esm({
-    "src/lib/ui/components/index.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_Codeblock();
-      init_ErrorBoundary();
-      init_Search();
-      init_Summary();
-    }
-  });
-
-  // src/lib/ui/settings/patches/shared.tsx
-  function wrapOnPress(onPress, navigation2, renderPromise, screenOptions, props) {
-    return /* @__PURE__ */ _async_to_generator(function* () {
-      if (onPress)
-        return void onPress();
-      var Component = yield renderPromise().then((m) => m.default);
-      if (typeof screenOptions === "string") {
-        screenOptions = {
-          title: screenOptions
-        };
-      }
-      navigation2 ??= tabsNavigationRef.getRootNavigationRef();
-      navigation2.navigate("BUNNY_CUSTOM_PAGE", {
-        ...screenOptions,
-        render: () => /* @__PURE__ */ jsx(Component, {
-          ...props
-        })
-      });
-    });
-  }
-  var tabsNavigationRef, CustomPageRenderer;
-  var init_shared = __esm({
-    "src/lib/ui/settings/patches/shared.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_async_to_generator();
-      init_jsxRuntime();
-      init_common();
-      init_wrappers();
-      init_components2();
-      tabsNavigationRef = findByPropsLazy("getRootNavigationRef");
-      CustomPageRenderer = React.memo(() => {
-        var navigation2 = NavigationNative.useNavigation();
-        var route = NavigationNative.useRoute();
-        var { render: PageComponent, ...args } = route.params;
-        React.useEffect(() => void navigation2.setOptions({
-          ...args
-        }), []);
-        return /* @__PURE__ */ jsx(ErrorBoundary, {
-          children: /* @__PURE__ */ jsx(PageComponent, {})
-        });
-      });
-    }
-  });
-
-  // src/lib/ui/settings/patches/panel.tsx
-  function SettingsSection() {
-    var navigation2 = NavigationNative.useNavigation();
-    return /* @__PURE__ */ jsx(Fragment, {
-      children: Object.keys(registeredSections).map((sect) => /* @__PURE__ */ jsx(LegacyFormSection, {
-        title: sect,
-        children: registeredSections[sect].filter((r) => r.usePredicate?.() ?? true).map((row) => /* @__PURE__ */ jsx(LegacyFormRow, {
-          label: row.title(),
-          leading: /* @__PURE__ */ jsx(LegacyFormIcon, {
-            source: row.icon
-          }),
-          trailing: LegacyFormRow.Arrow,
-          onPress: wrapOnPress(row.onPress, navigation2, row.render, row.title())
-        }))
-      }, sect))
-    });
-  }
-  function patchPanelUI(unpatches) {
-    unpatches.push(after("default", findByNameLazy("getScreens", false), (_a, screens) => ({
-      ...screens,
-      VendettaCustomPage: {
-        title: "Felocord",
-        render: () => /* @__PURE__ */ jsx(CustomPageRenderer, {})
-      },
-      BUNNY_CUSTOM_PAGE: {
-        title: "Felocord",
-        render: () => /* @__PURE__ */ jsx(CustomPageRenderer, {})
-      }
-    })));
-    var unpatch = after("default", findByNameLazy("UserSettingsOverviewWrapper", false), (_a, ret) => {
-      var UserSettingsOverview = findInReactTree(ret.props.children, (n) => n.type?.name === "UserSettingsOverview");
-      unpatches.push(after("renderSupportAndAcknowledgements", UserSettingsOverview.type.prototype, (_args, { props: { children } }) => {
-        var index = children.findIndex((c) => c?.type?.name === "UploadLogsButton");
-        if (index !== -1)
-          children.splice(index, 1);
-      }));
-      unpatches.push(after("render", UserSettingsOverview.type.prototype, (_args, res) => {
-        var titles = [
-          i18n.Messages.BILLING_SETTINGS,
-          i18n.Messages.PREMIUM_SETTINGS
-        ];
-        var sections = findInReactTree(res.props.children, (n) => n?.children?.[1]?.type === LegacyFormSection)?.children;
-        if (sections) {
-          var index = sections.findIndex((c) => titles.includes(c?.props.label));
-          sections.splice(-~index || 4, 0, /* @__PURE__ */ jsx(SettingsSection, {}));
-        }
-      }));
-    }, true);
-    unpatches.push(unpatch);
-  }
-  var init_panel = __esm({
-    "src/lib/ui/settings/patches/panel.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_jsxRuntime();
-      init_patcher();
-      init_utils();
-      init_common();
-      init_components();
-      init_wrappers();
-      init_settings2();
-      init_shared();
-    }
-  });
-
-  // src/lib/ui/settings/patches/tabs.tsx
-  function useIsFirstRender() {
-    var firstRender = false;
-    React.useEffect(() => void (firstRender = true), []);
-    return firstRender;
-  }
-  function patchTabsUI(unpatches) {
-    var getRows = () => Object.values(registeredSections).flatMap((sect) => sect.map((row) => ({
-      [row.key]: {
-        type: "pressable",
-        title: row.title,
-        icon: row.icon,
-        usePredicate: row.usePredicate,
-        onPress: wrapOnPress(row.onPress, null, row.render, row.title()),
-        withArrow: true,
-        ...row.rawTabsConfig
-      }
-    }))).reduce((a, c) => Object.assign(a, c));
-    var origRendererConfig = settingConstants.SETTING_RENDERER_CONFIG;
-    var rendererConfigValue = settingConstants.SETTING_RENDERER_CONFIG;
-    Object.defineProperty(settingConstants, "SETTING_RENDERER_CONFIG", {
-      enumerable: true,
-      configurable: true,
-      get: () => ({
-        ...rendererConfigValue,
-        VendettaCustomPage: {
-          type: "route",
-          title: () => "Felocord",
-          screen: {
-            route: "VendettaCustomPage",
-            getComponent: () => CustomPageRenderer
-          }
-        },
-        BUNNY_CUSTOM_PAGE: {
-          type: "route",
-          title: () => "Felocord",
-          screen: {
-            route: "BUNNY_CUSTOM_PAGE",
-            getComponent: () => CustomPageRenderer
-          }
-        },
-        ...getRows()
-      }),
-      set: (v) => rendererConfigValue = v
-    });
-    unpatches.push(() => {
-      Object.defineProperty(settingConstants, "SETTING_RENDERER_CONFIG", {
-        value: origRendererConfig,
-        writable: true,
-        get: void 0,
-        set: void 0
-      });
-    });
-    unpatches.push(after("default", SettingsOverviewScreen, (_, ret) => {
-      if (useIsFirstRender())
-        return;
-      var { sections } = findInReactTree(ret, (i) => i.props?.sections).props;
-      var index = -~sections.findIndex((i) => i.label === i18n.Messages.ACCOUNT_SETTINGS) || 1;
-      Object.keys(registeredSections).forEach((sect) => {
-        sections.splice(index++, 0, {
-          label: sect,
-          title: sect,
-          settings: registeredSections[sect].map((a) => a.key)
-        });
-      });
-    }));
-  }
-  var settingConstants, SettingsOverviewScreen;
-  var init_tabs = __esm({
-    "src/lib/ui/settings/patches/tabs.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_patcher();
-      init_utils();
-      init_common();
-      init_wrappers();
-      init_settings2();
-      init_shared();
-      settingConstants = findByPropsLazy("SETTING_RENDERER_CONFIG");
-      SettingsOverviewScreen = findByNameLazy("SettingsOverviewScreen", false);
-    }
-  });
-
-  // src/lib/ui/settings/index.tsx
-  var settings_exports2 = {};
-  __export(settings_exports2, {
-    patchSettings: () => patchSettings,
-    registerSection: () => registerSection,
-    registeredSections: () => registeredSections
-  });
-  function registerSection(section) {
-    registeredSections[section.name] = section.items;
-    return () => delete registeredSections[section.name];
-  }
-  function patchSettings() {
-    var unpatches = new Array();
-    patchPanelUI(unpatches);
-    patchTabsUI(unpatches);
-    return () => unpatches.forEach((u) => u());
-  }
-  var registeredSections;
-  var init_settings2 = __esm({
-    "src/lib/ui/settings/index.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_panel();
-      init_tabs();
-      registeredSections = {};
-    }
-  });
-
   // src/lib/ui/toasts.ts
   var toasts_exports = {};
   __export(toasts_exports, {
@@ -3818,42 +3273,12 @@
     }
   });
 
-  // src/core/ui/settings/pages/General/Version.tsx
-  function Version({ label, version, icon }) {
-    return /* @__PURE__ */ jsx(TableRow, {
-      label,
-      icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-        source: findAssetId(icon)
-      }),
-      trailing: /* @__PURE__ */ jsx(LegacyFormText, {
-        children: version
-      }),
-      onPress: () => {
-        clipboard.setString(`${label} - ${version}`);
-        showToast.showCopyToClipboard();
-      }
-    });
-  }
-  var init_Version = __esm({
-    "src/core/ui/settings/pages/General/Version.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_jsxRuntime();
-      init_assets();
-      init_common();
-      init_components();
-      init_toasts();
-    }
-  });
-
   // src/lib/api/debug.ts
   var debug_exports = {};
   __export(debug_exports, {
     connectToDebugger: () => connectToDebugger,
     getDebugInfo: () => getDebugInfo,
     patchLogHook: () => patchLogHook,
-    socket: () => socket,
     toggleSafeMode: () => toggleSafeMode,
     versionHash: () => versionHash
   });
@@ -3918,7 +3343,7 @@
     var hermesProps = window.HermesInternal.getRuntimeProperties();
     var hermesVer = hermesProps["OSS Release Version"];
     var padding = "for RN ";
-    var PlatformConstants = import_react_native8.Platform.constants;
+    var PlatformConstants = import_react_native3.Platform.constants;
     var rnVer = PlatformConstants.reactNativeVersion;
     return {
       /**
@@ -3948,7 +3373,7 @@
         buildType: hermesProps.Build,
         bytecodeVersion: hermesProps["Bytecode Version"]
       },
-      ...import_react_native8.Platform.select({
+      ...import_react_native3.Platform.select({
         android: {
           os: {
             name: "Android",
@@ -3963,7 +3388,7 @@
           }
         }
       }),
-      ...import_react_native8.Platform.select({
+      ...import_react_native3.Platform.select({
         android: {
           device: {
             manufacturer: PlatformConstants.Manufacturer,
@@ -3983,23 +3408,1337 @@
       })
     };
   }
-  var import_react_native8, socket, versionHash;
+  var import_react_native3, socket, versionHash;
   var init_debug = __esm({
     "src/lib/api/debug.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_async_to_generator();
+      init_themes();
       init_assets();
       init_loader();
       init_modules();
       init_patcher();
       init_settings();
-      init_themes();
       init_logger();
       init_toasts();
+      import_react_native3 = __toESM(require_react_native());
+      versionHash = "6c624f4-main";
+    }
+  });
+
+  // src/metro/index.ts
+  var metro_exports = {};
+  __export(metro_exports, {
+    common: () => common_exports,
+    factories: () => factories_exports,
+    filters: () => filters_exports,
+    findAllExports: () => findAllExports,
+    findAllModule: () => findAllModule,
+    findAllModuleId: () => findAllModuleId,
+    findByDisplayName: () => findByDisplayName,
+    findByDisplayNameAll: () => findByDisplayNameAll,
+    findByDisplayNameLazy: () => findByDisplayNameLazy,
+    findByFilePath: () => findByFilePath,
+    findByFilePathLazy: () => findByFilePathLazy,
+    findByName: () => findByName,
+    findByNameAll: () => findByNameAll,
+    findByNameLazy: () => findByNameLazy,
+    findByProps: () => findByProps,
+    findByPropsAll: () => findByPropsAll,
+    findByPropsLazy: () => findByPropsLazy,
+    findByStoreName: () => findByStoreName,
+    findByStoreNameLazy: () => findByStoreNameLazy,
+    findByTypeName: () => findByTypeName,
+    findByTypeNameAll: () => findByTypeNameAll,
+    findByTypeNameLazy: () => findByTypeNameLazy,
+    findExports: () => findExports,
+    findModule: () => findModule,
+    findModuleId: () => findModuleId,
+    lazy: () => lazy_exports2
+  });
+  var init_metro = __esm({
+    "src/metro/index.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_common();
+      init_factories();
+      init_filters();
+      init_finders();
+      init_lazy2();
+      init_wrappers();
+    }
+  });
+
+  // src/lib/ui/components/wrappers/AlertModal.tsx
+  function AlertModal(props) {
+    var forwardFailedModal = findByFilePath("modules/forwarding/native/ForwardFailedAlertModal.tsx");
+    if (!forwardFailedModal && "extraContent" in props) {
+      props.content = /* @__PURE__ */ jsxs(import_react_native4.View, {
+        style: {
+          gap: 16
+        },
+        children: [
+          /* @__PURE__ */ jsx(Text, {
+            variant: "text-md/medium",
+            color: "text-muted",
+            children: props.content
+          }),
+          /* @__PURE__ */ jsx(import_react_native4.View, {
+            children: props.extraContent
+          })
+        ]
+      });
+      delete props.extraContent;
+    }
+    return /* @__PURE__ */ jsx(_AlertModal, {
+      ...props
+    });
+  }
+  var import_react_native4, _AlertModal, _AlertActionButton, AlertActionButton;
+  var init_AlertModal = __esm({
+    "src/lib/ui/components/wrappers/AlertModal.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_lazy();
+      init_metro();
+      init_components();
+      import_react_native4 = __toESM(require_react_native());
+      ({ AlertModal: _AlertModal, AlertActionButton: _AlertActionButton } = lazyDestructure(() => findByProps("AlertModal", "AlertActions")));
+      AlertActionButton = _AlertActionButton;
+    }
+  });
+
+  // src/lib/ui/components/wrappers/index.ts
+  var wrappers_exports = {};
+  __export(wrappers_exports, {
+    AlertActionButton: () => AlertActionButton,
+    AlertModal: () => AlertModal
+  });
+  var init_wrappers2 = __esm({
+    "src/lib/ui/components/wrappers/index.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_AlertModal();
+    }
+  });
+
+  // src/lib/ui/color.ts
+  function isSemanticColor(sym) {
+    return colorResolver.isSemanticColor(sym);
+  }
+  function resolveSemanticColor(sym, theme = ThemeStore2.theme) {
+    return colorResolver.resolveSemanticColor(theme, sym);
+  }
+  var semanticColors, rawColors, ThemeStore2, colorResolver;
+  var init_color = __esm({
+    "src/lib/ui/color.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_themes();
+      init_common();
+      init_wrappers();
+      semanticColors = color?.default?.colors ?? constants?.ThemeColorMap;
+      rawColors = color?.default?.unsafe_rawColors ?? constants?.Colors;
+      ThemeStore2 = findByStoreNameLazy("ThemeStore");
+      colorResolver = color.default.meta ??= color.default.internal;
+    }
+  });
+
+  // src/lib/ui/styles.ts
+  var styles_exports = {};
+  __export(styles_exports, {
+    TextStyleSheet: () => TextStyleSheet,
+    ThemeContext: () => ThemeContext,
+    createLegacyClassComponentStyles: () => createLegacyClassComponentStyles,
+    createStyles: () => createStyles,
+    createThemedStyleSheet: () => createThemedStyleSheet
+  });
+  function createStyles(sheet) {
+    return proxyLazy(() => Styles.createStyles(sheet));
+  }
+  function createLegacyClassComponentStyles(sheet) {
+    return proxyLazy(() => Styles.createLegacyClassComponentStyles(sheet));
+  }
+  function createThemedStyleSheet(sheet) {
+    for (var key in sheet) {
+      sheet[key] = new Proxy(import_react_native5.StyleSheet.flatten(sheet[key]), {
+        get(target, prop, receiver) {
+          var res = Reflect.get(target, prop, receiver);
+          return isSemanticColor(res) ? resolveSemanticColor(res) : res;
+        }
+      });
+    }
+    return sheet;
+  }
+  var import_react_native5, Styles, ThemeContext, TextStyleSheet;
+  var init_styles = __esm({
+    "src/lib/ui/styles.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_lazy();
+      init_wrappers();
+      init_color();
+      import_react_native5 = __toESM(require_react_native());
+      Styles = findByPropsLazy("createStyles");
+      ({ ThemeContext } = lazyDestructure(() => findByProps("ThemeContext"), {
+        hint: "object"
+      }));
+      ({ TextStyleSheet } = lazyDestructure(() => findByProps("TextStyleSheet")));
+    }
+  });
+
+  // src/lib/ui/components/Codeblock.tsx
+  function Codeblock({ selectable, style, children }) {
+    if (!selectable)
+      return /* @__PURE__ */ jsx(TextBasedCodeblock, {
+        style,
+        children
+      });
+    return import_react_native6.Platform.select({
+      ios: /* @__PURE__ */ jsx(InputBasedCodeblock, {
+        style,
+        children
+      }),
+      default: /* @__PURE__ */ jsx(TextBasedCodeblock, {
+        style,
+        children,
+        selectable: true
+      })
+    });
+  }
+  var import_react_native6, useStyles, InputBasedCodeblock, TextBasedCodeblock;
+  var init_Codeblock = __esm({
+    "src/lib/ui/components/Codeblock.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_common();
+      init_color();
+      init_styles();
+      import_react_native6 = __toESM(require_react_native());
+      useStyles = createStyles({
+        codeBlock: {
+          fontFamily: constants.Fonts.CODE_NORMAL,
+          fontSize: 12,
+          textAlignVertical: "center",
+          backgroundColor: semanticColors.BACKGROUND_SECONDARY,
+          color: semanticColors.TEXT_NORMAL,
+          borderWidth: 1,
+          borderRadius: 12,
+          borderColor: semanticColors.BACKGROUND_TERTIARY,
+          padding: 10
+        }
+      });
+      InputBasedCodeblock = ({ style, children }) => /* @__PURE__ */ jsx(import_react_native6.TextInput, {
+        editable: false,
+        multiline: true,
+        style: [
+          useStyles().codeBlock,
+          style && style
+        ],
+        value: children
+      });
+      TextBasedCodeblock = ({ selectable, style, children }) => /* @__PURE__ */ jsx(import_react_native6.Text, {
+        selectable,
+        style: [
+          useStyles().codeBlock,
+          style && style
+        ],
+        children
+      });
+    }
+  });
+
+  // src/lib/ui/sheets.ts
+  var sheets_exports = {};
+  __export(sheets_exports, {
+    hideSheet: () => hideSheet,
+    showSheet: () => showSheet
+  });
+  function showSheet(key, lazyImport, props) {
+    if (!("then" in lazyImport))
+      lazyImport = Promise.resolve({
+        default: lazyImport
+      });
+    actionSheet.openLazy(lazyImport, key, props ?? {});
+  }
+  function hideSheet(key) {
+    actionSheet.hideActionSheet(key);
+  }
+  var actionSheet;
+  var init_sheets = __esm({
+    "src/lib/ui/sheets.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_wrappers();
+      actionSheet = findByPropsLazy("openLazy", "hideActionSheet");
+    }
+  });
+
+  // src/core/ui/reporter/utils/parseComponentStack.tsx
+  function parseComponentStack(componentStack) {
+    return componentStack.split(/[\s|\n]+?in /).filter(Boolean);
+  }
+  var init_parseComponentStack = __esm({
+    "src/core/ui/reporter/utils/parseComponentStack.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+    }
+  });
+
+  // globals:react
+  var require_react = __commonJS({
+    "globals:react"(exports, module) {
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      module.exports = require_depsModule()["react"];
+    }
+  });
+
+  // src/core/ui/reporter/components/ErrorComponentStackCard.tsx
+  function ErrorComponentStackCard(props) {
+    var [collapsed, setCollapsed] = (0, import_react.useState)(true);
+    var stack;
+    try {
+      stack = parseComponentStack(props.componentStack);
+      stack = collapsed ? stack.slice(0, 4) : stack;
+    } catch (e) {
+      return;
+    }
+    return /* @__PURE__ */ jsx(Card, {
+      children: /* @__PURE__ */ jsxs(import_react_native7.View, {
+        style: {
+          gap: 8
+        },
+        children: [
+          /* @__PURE__ */ jsx(Text, {
+            variant: "heading-lg/bold",
+            children: "Component Stack"
+          }),
+          /* @__PURE__ */ jsx(import_react_native7.View, {
+            style: {
+              gap: 4
+            },
+            children: stack.map((component) => /* @__PURE__ */ jsxs(import_react_native7.View, {
+              style: {
+                flexDirection: "row"
+              },
+              children: [
+                /* @__PURE__ */ jsx(Text, {
+                  variant: "text-md/bold",
+                  color: "text-muted",
+                  children: "<"
+                }),
+                /* @__PURE__ */ jsx(Text, {
+                  variant: "text-md/bold",
+                  children: component
+                }),
+                /* @__PURE__ */ jsx(Text, {
+                  variant: "text-md/bold",
+                  color: "text-muted",
+                  children: "/>"
+                })
+              ]
+            }))
+          }),
+          collapsed && /* @__PURE__ */ jsx(Text, {
+            children: "..."
+          }),
+          /* @__PURE__ */ jsxs(import_react_native7.View, {
+            style: {
+              gap: 8,
+              flexDirection: "row",
+              justifyContent: "center",
+              alignItems: "center"
+            },
+            children: [
+              /* @__PURE__ */ jsx(Button, {
+                variant: "secondary",
+                text: `Show ${collapsed ? "more" : "less"}`,
+                icon: collapsed ? findAssetId("down_arrow") : /* @__PURE__ */ jsx(import_react_native7.Image, {
+                  style: {
+                    transform: [
+                      {
+                        rotate: `${collapsed ? 0 : 180}deg`
+                      }
+                    ]
+                  },
+                  source: findAssetId("down_arrow")
+                }),
+                onPress: () => setCollapsed((v2) => !v2)
+              }),
+              /* @__PURE__ */ jsx(Button, {
+                variant: "secondary",
+                text: "Copy",
+                icon: findAssetId("CopyIcon"),
+                onPress: () => clipboard.setString(props.componentStack)
+              })
+            ]
+          })
+        ]
+      })
+    });
+  }
+  var import_react, import_react_native7;
+  var init_ErrorComponentStackCard = __esm({
+    "src/core/ui/reporter/components/ErrorComponentStackCard.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_parseComponentStack();
+      init_assets();
+      init_common();
+      init_components();
+      import_react = __toESM(require_react());
+      import_react_native7 = __toESM(require_react_native());
+    }
+  });
+
+  // src/core/ui/reporter/utils/parseErrorStack.ts
+  function isInternalBytecodeSourceUrl(sourceUrl) {
+    return sourceUrl === "InternalBytecode.js";
+  }
+  function parseLine(line) {
+    var asFrame = line.match(RE_FRAME);
+    if (asFrame) {
+      return {
+        type: "FRAME",
+        functionName: asFrame[1],
+        location: asFrame[2] === "native" ? {
+          type: "NATIVE"
+        } : asFrame[3] === "address at " ? isInternalBytecodeSourceUrl(asFrame[4]) ? {
+          type: "INTERNAL_BYTECODE",
+          sourceUrl: asFrame[4],
+          line1Based: Number.parseInt(asFrame[5], 10),
+          virtualOffset0Based: Number.parseInt(asFrame[6], 10)
+        } : {
+          type: "BYTECODE",
+          sourceUrl: asFrame[4],
+          line1Based: Number.parseInt(asFrame[5], 10),
+          virtualOffset0Based: Number.parseInt(asFrame[6], 10)
+        } : {
+          type: "SOURCE",
+          sourceUrl: asFrame[4],
+          line1Based: Number.parseInt(asFrame[5], 10),
+          column1Based: Number.parseInt(asFrame[6], 10)
+        }
+      };
+    }
+    var asSkipped = line.match(RE_SKIPPED);
+    if (asSkipped) {
+      return {
+        type: "SKIPPED",
+        count: Number.parseInt(asSkipped[1], 10)
+      };
+    }
+  }
+  function parseHermesStack(stack) {
+    var lines = stack.split(/\n/);
+    var entries = [];
+    var lastMessageLine = -1;
+    for (var i = 0; i < lines.length; ++i) {
+      var line = lines[i];
+      if (!line) {
+        continue;
+      }
+      var entry = parseLine(line);
+      if (entry) {
+        entries.push(entry);
+        continue;
+      }
+      if (RE_COMPONENT_NO_STACK.test(line)) {
+        continue;
+      }
+      lastMessageLine = i;
+      entries = [];
+    }
+    var message = lines.slice(0, lastMessageLine + 1).join("\n");
+    return {
+      message,
+      entries
+    };
+  }
+  function convertHermesStack(stack) {
+    var frames = [];
+    for (var entry of stack.entries) {
+      if (entry.type !== "FRAME") {
+        continue;
+      }
+      var { location, functionName } = entry;
+      if (location.type === "NATIVE" || location.type === "INTERNAL_BYTECODE") {
+        continue;
+      }
+      frames.push({
+        methodName: functionName,
+        file: location.sourceUrl,
+        lineNumber: location.line1Based,
+        column: location.type === "SOURCE" ? location.column1Based - 1 : location.virtualOffset0Based
+      });
+    }
+    return frames;
+  }
+  function parseErrorStack(errorStack) {
+    if (errorStack == null) {
+      return [];
+    }
+    var parsedStack = Array.isArray(errorStack) ? errorStack : convertHermesStack(parseHermesStack(errorStack));
+    return parsedStack;
+  }
+  var RE_FRAME, RE_SKIPPED, RE_COMPONENT_NO_STACK;
+  var init_parseErrorStack = __esm({
+    "src/core/ui/reporter/utils/parseErrorStack.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      RE_FRAME = /^ {4}at (.+?)(?: \((native)\)?| \((address at )?(.*?):(\d+):(\d+)\))$/;
+      RE_SKIPPED = /^ {4}... skipping (\d+) frames$/;
+      RE_COMPONENT_NO_STACK = /^ {4}at .*$/;
+    }
+  });
+
+  // src/core/ui/reporter/components/ErrorStackCard.tsx
+  function ErrorStackCard(props) {
+    var [collapsed, setCollapsed] = (0, import_react2.useState)(true);
+    var stack;
+    try {
+      var parsedErrorStack = parseErrorStack(props.error.stack);
+      stack = collapsed ? parsedErrorStack.slice(0, 4) : parsedErrorStack;
+    } catch (e) {
+      return null;
+    }
+    return /* @__PURE__ */ jsx(Card, {
+      children: /* @__PURE__ */ jsxs(import_react_native8.View, {
+        style: {
+          gap: 12
+        },
+        children: [
+          /* @__PURE__ */ jsx(Text, {
+            variant: "heading-lg/bold",
+            children: "Call Stack"
+          }),
+          /* @__PURE__ */ jsx(import_react_native8.View, {
+            style: {
+              gap: 4
+            },
+            children: stack.map((f, id) => /* @__PURE__ */ jsx(Line, {
+              id,
+              frame: f
+            }))
+          }),
+          collapsed && /* @__PURE__ */ jsx(Text, {
+            children: "..."
+          }),
+          /* @__PURE__ */ jsxs(import_react_native8.View, {
+            style: {
+              gap: 8,
+              flexDirection: "row",
+              justifyContent: "center",
+              alignItems: "center"
+            },
+            children: [
+              /* @__PURE__ */ jsx(Button, {
+                variant: "secondary",
+                text: `Show ${collapsed ? "more" : "less"}`,
+                icon: collapsed ? findAssetId("down_arrow") : /* @__PURE__ */ jsx(import_react_native8.Image, {
+                  style: {
+                    transform: [
+                      {
+                        rotate: `${collapsed ? 0 : 180}deg`
+                      }
+                    ]
+                  },
+                  source: findAssetId("down_arrow")
+                }),
+                onPress: () => setCollapsed((v2) => !v2)
+              }),
+              /* @__PURE__ */ jsx(Button, {
+                variant: "secondary",
+                text: "Copy",
+                icon: findAssetId("CopyIcon"),
+                onPress: () => clipboard.setString(props.error.stack)
+              })
+            ]
+          })
+        ]
+      })
+    });
+  }
+  function Line(props) {
+    var [collapsed, setCollapsed] = (0, import_react2.useState)(true);
+    return /* @__PURE__ */ jsxs(import_react_native8.Pressable, {
+      onPress: () => setCollapsed((v2) => !v2),
+      children: [
+        /* @__PURE__ */ jsx(Text, {
+          style: {
+            fontFamily: constants.Fonts.CODE_BOLD
+          },
+          children: props.frame.methodName
+        }),
+        /* @__PURE__ */ jsx(Text, {
+          style: {
+            fontFamily: constants.Fonts.CODE_NORMAL
+          },
+          ellipsizeMode: "middle",
+          numberOfLines: collapsed ? 1 : void 0,
+          children: /* @__PURE__ */ jsxs(Text, {
+            color: "text-muted",
+            children: [
+              props.frame.file === INDEX_BUNDLE_FILE ? "jsbundle" : props.frame.file,
+              ":",
+              props.frame.lineNumber,
+              ":",
+              props.frame.column
+            ]
+          })
+        })
+      ]
+    }, props.id);
+  }
+  var import_react2, import_react_native8;
+  var init_ErrorStackCard = __esm({
+    "src/core/ui/reporter/components/ErrorStackCard.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_parseErrorStack();
+      init_assets();
+      init_common();
+      init_components();
+      import_react2 = __toESM(require_react());
       import_react_native8 = __toESM(require_react_native());
-      versionHash = "10885c3-main";
+      init_ErrorCard();
+    }
+  });
+
+  // src/core/ui/reporter/components/ErrorDetailsActionSheet.tsx
+  function ErrorDetailsActionSheet(props) {
+    return /* @__PURE__ */ jsx(ActionSheet, {
+      children: /* @__PURE__ */ jsxs(import_react_native9.View, {
+        style: {
+          gap: 12,
+          paddingVertical: 12
+        },
+        children: [
+          /* @__PURE__ */ jsx(Text, {
+            variant: "heading-lg/extrabold",
+            children: "Error"
+          }),
+          /* @__PURE__ */ jsx(Codeblock, {
+            selectable: true,
+            children: props.error.message
+          }),
+          hasStack(props.error) && /* @__PURE__ */ jsx(ErrorStackCard, {
+            error: props.error
+          }),
+          isComponentStack(props.error) ? /* @__PURE__ */ jsx(ErrorComponentStackCard, {
+            componentStack: props.error.componentStack
+          }) : null
+        ]
+      })
+    });
+  }
+  var import_react_native9;
+  var init_ErrorDetailsActionSheet = __esm({
+    "src/core/ui/reporter/components/ErrorDetailsActionSheet.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_isStack();
+      init_components2();
+      init_components();
+      import_react_native9 = __toESM(require_react_native());
+      init_ErrorComponentStackCard();
+      init_ErrorStackCard();
+    }
+  });
+
+  // src/core/ui/reporter/components/ErrorCard.tsx
+  function ErrorCard(props) {
+    return /* @__PURE__ */ jsx(Card, {
+      children: /* @__PURE__ */ jsxs(Stack, {
+        children: [
+          props.header && typeof props.header !== "string" ? props.header : /* @__PURE__ */ jsx(Text, {
+            variant: "heading-lg/bold",
+            children: props.header ?? Strings.UH_OH
+          }),
+          /* @__PURE__ */ jsx(Codeblock, {
+            selectable: true,
+            children: String(props.error)
+          }),
+          /* @__PURE__ */ jsxs(TwinButtons, {
+            children: [
+              props.onRetryRender && /* @__PURE__ */ jsx(Button, {
+                variant: "destructive",
+                // icon={findAssetId("RetryIcon")}
+                text: Strings.RETRY_RENDER,
+                onPress: props.onRetryRender
+              }),
+              props.error instanceof Error ? /* @__PURE__ */ jsx(Button, {
+                text: "Details",
+                // icon={findAssetId("CircleInformationIcon-primary")}
+                onPress: () => showSheet("FelocordErrorDetailsActionSheet", ErrorDetailsActionSheet, {
+                  error: props.error
+                })
+              }) : null
+            ]
+          })
+        ]
+      })
+    });
+  }
+  var INDEX_BUNDLE_FILE;
+  var init_ErrorCard = __esm({
+    "src/core/ui/reporter/components/ErrorCard.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_i18n();
+      init_components2();
+      init_sheets();
+      init_components();
+      init_ErrorDetailsActionSheet();
+      INDEX_BUNDLE_FILE = window.HermesInternal.getFunctionLocation(window.__r).fileName;
+    }
+  });
+
+  // src/lib/ui/components/ErrorBoundary.tsx
+  var _React_Component, ErrorBoundary;
+  var init_ErrorBoundary = __esm({
+    "src/lib/ui/components/ErrorBoundary.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_call_super();
+      init_class_call_check();
+      init_create_class();
+      init_define_property();
+      init_inherits();
+      init_jsxRuntime();
+      init_ErrorCard();
+      init_common();
+      init_styles();
+      ErrorBoundary = /* @__PURE__ */ function(_superClass) {
+        "use strict";
+        _inherits(ErrorBoundary2, _superClass);
+        function ErrorBoundary2(props) {
+          _class_call_check(this, ErrorBoundary2);
+          var _this;
+          _this = _call_super(this, ErrorBoundary2, [
+            props
+          ]);
+          _this.state = {
+            hasErr: false
+          };
+          return _this;
+        }
+        _create_class(ErrorBoundary2, [
+          {
+            key: "render",
+            value: function render() {
+              if (!this.state.hasErr)
+                return this.props.children;
+              return /* @__PURE__ */ jsx(ErrorCard, {
+                error: this.state.error,
+                onRetryRender: () => this.setState({
+                  hasErr: false
+                })
+              });
+            }
+          }
+        ]);
+        return ErrorBoundary2;
+      }(_React_Component = React2.Component);
+      _define_property(ErrorBoundary, "contextType", ThemeContext);
+      _define_property(ErrorBoundary, "getDerivedStateFromError", (error) => ({
+        hasErr: true,
+        error
+      }));
+    }
+  });
+
+  // src/lib/ui/components/Search.tsx
+  function SearchIcon() {
+    return /* @__PURE__ */ jsx(import_react_native10.Image, {
+      style: {
+        width: 16,
+        height: 16
+      },
+      source: findAssetId("search")
+    });
+  }
+  var import_react_native10, Search_default;
+  var init_Search = __esm({
+    "src/lib/ui/components/Search.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_i18n();
+      init_assets();
+      init_components();
+      init_ErrorBoundary();
+      import_react_native10 = __toESM(require_react_native());
+      Search_default = ({ onChangeText, placeholder, style, isRound }) => {
+        var [query, setQuery] = React.useState("");
+        var onChange = (value) => {
+          setQuery(value);
+          onChangeText?.(value);
+        };
+        return /* @__PURE__ */ jsx(ErrorBoundary, {
+          children: /* @__PURE__ */ jsx(import_react_native10.View, {
+            style,
+            children: /* @__PURE__ */ jsx(TextInput, {
+              grow: true,
+              isClearable: true,
+              leadingIcon: SearchIcon,
+              placeholder: placeholder ?? Strings.SEARCH,
+              onChange,
+              returnKeyType: "search",
+              size: "md",
+              autoCapitalize: "none",
+              autoCorrect: false,
+              isRound,
+              value: query
+            })
+          })
+        });
+      };
+    }
+  });
+
+  // src/lib/ui/components/Summary.tsx
+  function Summary({ label, icon, noPadding = false, noAnimation = false, children }) {
+    var [hidden, setHidden] = React.useState(true);
+    return /* @__PURE__ */ jsxs(Fragment, {
+      children: [
+        /* @__PURE__ */ jsx(TableRow, {
+          label,
+          icon: icon && /* @__PURE__ */ jsx(TableRow.Icon, {
+            source: findAssetId(icon)
+          }),
+          trailing: /* @__PURE__ */ jsx(LegacyFormRow.Arrow, {
+            style: {
+              transform: [
+                {
+                  rotate: `${hidden ? 180 : 90}deg`
+                }
+              ]
+            }
+          }),
+          onPress: () => {
+            setHidden(!hidden);
+            if (!noAnimation)
+              import_react_native11.LayoutAnimation.configureNext(import_react_native11.LayoutAnimation.Presets.easeInEaseOut);
+          }
+        }),
+        !hidden && /* @__PURE__ */ jsx(Fragment, {
+          children: /* @__PURE__ */ jsx(import_react_native11.View, {
+            style: !noPadding && {
+              paddingHorizontal: 15
+            },
+            children
+          })
+        })
+      ]
+    });
+  }
+  var import_react_native11;
+  var init_Summary = __esm({
+    "src/lib/ui/components/Summary.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_assets();
+      init_components();
+      import_react_native11 = __toESM(require_react_native());
+    }
+  });
+
+  // src/lib/ui/components/index.ts
+  var components_exports2 = {};
+  __export(components_exports2, {
+    Codeblock: () => Codeblock,
+    ErrorBoundary: () => ErrorBoundary,
+    Search: () => Search_default,
+    Summary: () => Summary,
+    wrappers: () => wrappers_exports
+  });
+  var init_components2 = __esm({
+    "src/lib/ui/components/index.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_wrappers2();
+      init_Codeblock();
+      init_ErrorBoundary();
+      init_Search();
+      init_Summary();
+    }
+  });
+
+  // src/core/ui/reporter/components/ErrorBoundaryScreen.tsx
+  function ErrorBoundaryScreen(props) {
+    var styles = useStyles2();
+    var debugInfo = getDebugInfo();
+    return /* @__PURE__ */ jsx(ErrorBoundary, {
+      children: /* @__PURE__ */ jsx(SafeAreaProvider, {
+        children: /* @__PURE__ */ jsxs(SafeAreaView, {
+          style: styles.container,
+          children: [
+            /* @__PURE__ */ jsxs(import_react_native12.View, {
+              style: {
+                gap: 4
+              },
+              children: [
+                /* @__PURE__ */ jsx(Text, {
+                  variant: "display-lg",
+                  children: "Uh oh."
+                }),
+                /* @__PURE__ */ jsx(Text, {
+                  variant: "text-md/normal",
+                  children: "A crash occurred while rendering a component. This could be caused by a plugin, Felocord or Discord itself."
+                }),
+                /* @__PURE__ */ jsxs(Text, {
+                  variant: "text-sm/normal",
+                  color: "text-muted",
+                  children: [
+                    debugInfo.os.name,
+                    "; ",
+                    debugInfo.discord.build,
+                    " (",
+                    debugInfo.discord.version,
+                    "); ",
+                    debugInfo.felocord.version
+                  ]
+                })
+              ]
+            }),
+            /* @__PURE__ */ jsxs(import_react_native12.ScrollView, {
+              fadingEdgeLength: 64,
+              contentContainerStyle: {
+                gap: 12
+              },
+              children: [
+                /* @__PURE__ */ jsx(Codeblock, {
+                  selectable: true,
+                  children: props.error.message
+                }),
+                hasStack(props.error) && /* @__PURE__ */ jsx(ErrorStackCard, {
+                  error: props.error
+                }),
+                isComponentStack(props.error) ? /* @__PURE__ */ jsx(ErrorComponentStackCard, {
+                  componentStack: props.error.componentStack
+                }) : null
+              ]
+            }),
+            /* @__PURE__ */ jsxs(Card, {
+              style: {
+                gap: 6
+              },
+              children: [
+                /* @__PURE__ */ jsx(Button, {
+                  text: "Reload Discord",
+                  onPress: () => BundleUpdaterManager.reload()
+                }),
+                !settings.safeMode?.enabled && /* @__PURE__ */ jsx(Button, {
+                  text: "Reload in Safe Mode",
+                  onPress: () => toggleSafeMode()
+                }),
+                /* @__PURE__ */ jsx(Button, {
+                  variant: "destructive",
+                  text: "Retry Render",
+                  onPress: () => props.rerender()
+                })
+              ]
+            })
+          ]
+        })
+      })
+    });
+  }
+  var import_react_native12, useStyles2;
+  var init_ErrorBoundaryScreen = __esm({
+    "src/core/ui/reporter/components/ErrorBoundaryScreen.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_isStack();
+      init_debug();
+      init_modules();
+      init_settings();
+      init_components2();
+      init_styles();
+      init_common();
+      init_components();
+      import_react_native12 = __toESM(require_react_native());
+      init_ErrorComponentStackCard();
+      init_ErrorStackCard();
+      useStyles2 = createStyles({
+        container: {
+          flex: 1,
+          backgroundColor: tokens.colors.BG_BASE_SECONDARY,
+          paddingHorizontal: 16,
+          height: "100%",
+          padding: 8,
+          gap: 12
+        }
+      });
+    }
+  });
+
+  // src/core/debug/patches/patchErrorBoundary.tsx
+  function getErrorBoundaryContext() {
+    var ctxt = findByNameLazy("ErrorBoundary")[_lazyContextSymbol];
+    return new Promise((resolve) => ctxt.getExports((exp) => resolve(exp.prototype)));
+  }
+  function patchErrorBoundary() {
+    return after.await("render", getErrorBoundaryContext(), function() {
+      if (!this.state.error)
+        return;
+      return /* @__PURE__ */ jsx(ErrorBoundaryScreen, {
+        error: this.state.error,
+        rerender: () => this.setState({
+          info: null,
+          error: null
+        })
+      });
+    });
+  }
+  var init_patchErrorBoundary = __esm({
+    "src/core/debug/patches/patchErrorBoundary.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_ErrorBoundaryScreen();
+      init_patcher();
+      init_lazy2();
+      init_wrappers();
+    }
+  });
+
+  // globals:moment
+  var require_moment = __commonJS({
+    "globals:moment"(exports, module) {
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      module.exports = require_depsModule()["moment"];
+    }
+  });
+
+  // src/core/fixes.ts
+  function onDispatch({ locale }) {
+    try {
+      import_moment.default.locale(locale.toLowerCase());
+    } catch (e) {
+      logger.error("Failed to fix timestamps...", e);
+    }
+    FluxDispatcher.unsubscribe("I18N_LOAD_SUCCESS", onDispatch);
+  }
+  var import_moment, fixes_default;
+  var init_fixes = __esm({
+    "src/core/fixes.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_logger();
+      init_common();
+      import_moment = __toESM(require_moment());
+      fixes_default = () => {
+        FluxDispatcher.subscribe("I18N_LOAD_SUCCESS", onDispatch);
+      };
+    }
+  });
+
+  // src/assets/icons/felitendo.png
+  var felitendo_default;
+  var init_felitendo = __esm({
+    "src/assets/icons/felitendo.png"() {
+      felitendo_default = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAABoBJREFUeF7lW1nIVlUUXasom80kijJKaVQzGtTUjCJteNBmeqigssnIpDIqwmw0GqhQi4iw8SEaHtKgMpNKM7SiyUZpLppoTi0rd2f9nCu36/2+79zxv/5t8MV/n333WWefffb0EQ0iM+sH4AEAowG8CGAqycVVqsgqhWeVbWavAtg/tu4vABNIPphVVih/YwAws2EAlrRQfChJgVM6NQmARwGc0GKHX5PcofTdA2gSAJ8A2KXNJueQPLpsEJoEwI8A+rTZ4GrnIAeQ/KpMEJoEwCoAm3TY3DKSezcKADPbCMDWADYEIK/9B4CVJC2LomYWwv8PgC1JCqxSqJAFmNlOAF6PAfA3ACn3MYBLSD4bqmUgABI3l+T4ULmd+IoCcDeAs9p8RI5NPDNJrminTAYAZAVbkJSlFaaiALwJYEiAFh8CuJHk7Fa8ZqaNbRAgSyzjSc4N5G3LVhQAmfiYDIosBXAGyXeSa8xMJ9orUNb7AAZm9TNpsosCMNnd/9sDlY7Y/gRwAYDZJOUzusjMfvK+JFRcX5J6OgtRUQB2B/BBDg3k8ZeQHBED4AsASoZCaTTJRaHMrfiKAqD1jwM4NqcinwE4mOTnZiYgBWgozSN5RChzJQB40x0A4KMCivwO4GQAFwI4JIMcRYa9i74GhSwgZr5XuWs8LYPyaazPAMh6ojvLeop8tywA5L0V/FSSsbXZ4Eh3DV7udgD8VdgMwK8+JC6iU5a115GcmmVBkrcUC4hdhYPcPX6+RhAWkDysMQB4SzgXwB0Zoroi+q8iKcvLTaVaQMwSZgGYWBMIfUj+nBeBSgDwljADwHk1XIdCL0FlAMRAOL/i0tsgku82zgI8AMruLgNwfV4FA9btQ/KtAL5UlkotIOYTjgdwr6o5eRVts244SWWZuagWALw1DFUGCGBwLk1bLxpG8pW8MmsDwIPQ25W+7wNwTF6FU9bJ2U7L+xLUCkDsSij5keLblASEagmjSL6XVV63AOCtQSVw3d2yytxr3JN7LUklZsHUnQAMcnUE1RRVTi+TXgIwjqSsoiN1CwBmtqvzA28A2LyjhvkYlCKr9vhcp+W1A2BmewB4AcB2nZQr+Hc1aaaQlK9pSbUC4E9eLfCynF8IRoo/JpJUMXYdqgUAM9N3RgFYGKJxDh71FK5WAwbAvgAeShRnPgWwZxoIdQFwEwCV0DfOsbmQJWPi993MZGGqMsdT5e9VdE3GC5UCYGY69ehUQjaSh0dv/5B4j0FCXJ8hrWexHMAIkj9EH6oEADNTZUjNj+MqeOaSIM0nOTb5n2amStH8FEQVNh8eWcJaAHybe7gfU9kLgEzmbd/91VCCujArXdd3hdA2M73fKobKzDTYIK+uRsel7tT75jnKnGvUUtuWpMrra8nMNG12aguZatjKMa7pAsDMtnK9tkdylKVz6lz6snsATFKPwB+M+gtppx//sBoyCyMAkuNppWtYg0CVxeT4tvfPbKcI8zHXpD2RZnaOW3RXDQo27ROrSfYSAGowylv/30iR4qYCQBFSVe9zk0Fd5GKH0QJAPfpO96XJG8mjmyJHOcHFAuA1APvlkbIerzmN5P3SXwBc7IaOblmPN5NVdaXK/RUDRACoTqcOq4KfptA37l1XuKpma0QKrlQ/2LEEJY8i+XQXAD4Q6u+uwZwKKrbtdNWYjMboNDClf0qTl+ktb5W6RsLMbDc/naZK80Cvt/YQSvruYJIr46GwanQTAJzph5Y1/Vk2aVZQCck8xR4kpUgpZGYCQDHNOK9/p6bpRSRvS02GzEx1tZGlaAbopH8DcDnJO0uS2VaMmWnzk1xz9hrXldIob9o+ldf0W+cPZiafkLvbmtDsSY3MytQ7mXUVwJiZrFozTKoK6QcZSVrXAszsSABPFVRIs4MzyjTxgvoo4TsAwCm+Yy2rEC1PswC9CAfm+KBMSsWPW0l+l2N9LUt8UfYKf8Vn/gcAM9MT82VGTeTYngBwdqeB6Ixya2FPAnCSKx4+HPhlBRJ6vsaS/DZwTePYkgCozx7SqpJXl69YmqzFNW6HHRSKxwGhc79XApgV2npqOiBxAE73/ftWOquRqbJT7mGEJoIRhcIaZVGjMm14QT+BucHVDKa7oUSlkT2KIgAUT6/zIwbXYFTmpLxZU909kiIAprhM6+bEDqf7Hy93pY09lSIAFriO7aF+k7/4aYs0i+hxOEQAqIGgNrJ+iDS5p3j4kNP6F9f7+CyBdXonAAAAAElFTkSuQmCC";
+    }
+  });
+
+  // src/lib/ui/settings/patches/shared.tsx
+  function wrapOnPress(onPress, navigation2, renderPromise, screenOptions, props) {
+    return /* @__PURE__ */ _async_to_generator(function* () {
+      if (onPress)
+        return void onPress();
+      var Component = yield renderPromise().then((m2) => m2.default);
+      if (typeof screenOptions === "string") {
+        screenOptions = {
+          title: screenOptions
+        };
+      }
+      navigation2 ??= tabsNavigationRef.getRootNavigationRef();
+      navigation2.navigate("BUNNY_CUSTOM_PAGE", {
+        ...screenOptions,
+        render: () => /* @__PURE__ */ jsx(Component, {
+          ...props
+        })
+      });
+    });
+  }
+  var tabsNavigationRef, CustomPageRenderer;
+  var init_shared = __esm({
+    "src/lib/ui/settings/patches/shared.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_async_to_generator();
+      init_jsxRuntime();
+      init_common();
+      init_wrappers();
+      init_components2();
+      tabsNavigationRef = findByPropsLazy("getRootNavigationRef");
+      CustomPageRenderer = React.memo(() => {
+        var navigation2 = NavigationNative.useNavigation();
+        var route = NavigationNative.useRoute();
+        var { render: PageComponent, ...args } = route.params;
+        React.useEffect(() => void navigation2.setOptions({
+          ...args
+        }), []);
+        return /* @__PURE__ */ jsx(ErrorBoundary, {
+          children: /* @__PURE__ */ jsx(PageComponent, {})
+        });
+      });
+    }
+  });
+
+  // src/lib/ui/settings/patches/panel.tsx
+  function SettingsSection() {
+    var navigation2 = NavigationNative.useNavigation();
+    return /* @__PURE__ */ jsx(Fragment, {
+      children: Object.keys(registeredSections).map((sect) => registeredSections[sect].length > 0 && /* @__PURE__ */ jsx(LegacyFormSection, {
+        title: sect,
+        children: registeredSections[sect].filter((r) => r.usePredicate?.() ?? true).map((row, i, arr) => /* @__PURE__ */ jsxs(Fragment, {
+          children: [
+            /* @__PURE__ */ jsx(LegacyFormRow, {
+              label: row.title(),
+              leading: /* @__PURE__ */ jsx(LegacyFormIcon, {
+                source: row.icon
+              }),
+              trailing: /* @__PURE__ */ jsx(LegacyFormRow.Arrow, {
+                label: row.useTrailing?.() || void 0
+              }),
+              onPress: wrapOnPress(row.onPress, navigation2, row.render, row.title())
+            }),
+            i !== arr.length - 1 && /* @__PURE__ */ jsx(LegacyFormDivider, {})
+          ]
+        }))
+      }, sect))
+    });
+  }
+  function patchPanelUI(unpatches) {
+    unpatches.push(after("default", findByNameLazy("getScreens", false), (_a, screens) => ({
+      ...screens,
+      VendettaCustomPage: {
+        title: "Felocord",
+        render: () => /* @__PURE__ */ jsx(CustomPageRenderer, {})
+      },
+      BUNNY_CUSTOM_PAGE: {
+        title: "Felocord",
+        render: () => /* @__PURE__ */ jsx(CustomPageRenderer, {})
+      }
+    })));
+    var unpatch = after("default", findByNameLazy("UserSettingsOverviewWrapper", false), (_a, ret) => {
+      var UserSettingsOverview = findInReactTree(ret.props.children, (n) => n.type?.name === "UserSettingsOverview");
+      unpatches.push(after("renderSupportAndAcknowledgements", UserSettingsOverview.type.prototype, (_args, { props: { children } }) => {
+        var index = children.findIndex((c2) => c2?.type?.name === "UploadLogsButton");
+        if (index !== -1)
+          children.splice(index, 1);
+      }));
+      unpatches.push(after("render", UserSettingsOverview.type.prototype, (_args, res) => {
+        var titles = [
+          i18n.Messages.BILLING_SETTINGS,
+          i18n.Messages.PREMIUM_SETTINGS
+        ];
+        var sections = findInReactTree(res.props.children, (n) => n?.children?.[1]?.type === LegacyFormSection)?.children || res.props.children;
+        if (sections) {
+          var index = sections.findIndex((c2) => titles.includes(c2?.props.label));
+          sections.splice(-~index || 4, 0, /* @__PURE__ */ jsx(SettingsSection, {}));
+        }
+      }));
+    }, true);
+    unpatches.push(unpatch);
+  }
+  var init_panel = __esm({
+    "src/lib/ui/settings/patches/panel.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_patcher();
+      init_utils();
+      init_common();
+      init_components();
+      init_wrappers();
+      init_settings2();
+      init_shared();
+    }
+  });
+
+  // src/lib/ui/settings/patches/tabs.tsx
+  function useIsFirstRender() {
+    var firstRender = false;
+    React.useEffect(() => void (firstRender = true), []);
+    return firstRender;
+  }
+  function patchTabsUI(unpatches) {
+    var getRows = () => Object.values(registeredSections).flatMap((sect) => sect.map((row) => ({
+      [row.key]: {
+        type: "pressable",
+        title: row.title,
+        icon: row.icon,
+        IconComponent: () => /* @__PURE__ */ jsx(TableRow.Icon, {
+          source: row.icon
+        }),
+        usePredicate: row.usePredicate,
+        useTrailing: row.useTrailing,
+        onPress: wrapOnPress(row.onPress, null, row.render, row.title()),
+        withArrow: true,
+        ...row.rawTabsConfig
+      }
+    }))).reduce((a, c2) => Object.assign(a, c2));
+    var origRendererConfig = settingConstants.SETTING_RENDERER_CONFIG;
+    var rendererConfigValue = settingConstants.SETTING_RENDERER_CONFIG;
+    Object.defineProperty(settingConstants, "SETTING_RENDERER_CONFIG", {
+      enumerable: true,
+      configurable: true,
+      get: () => ({
+        ...rendererConfigValue,
+        VendettaCustomPage: {
+          type: "route",
+          title: () => "Felocord",
+          screen: {
+            route: "VendettaCustomPage",
+            getComponent: () => CustomPageRenderer
+          }
+        },
+        BUNNY_CUSTOM_PAGE: {
+          type: "route",
+          title: () => "Felocord",
+          screen: {
+            route: "BUNNY_CUSTOM_PAGE",
+            getComponent: () => CustomPageRenderer
+          }
+        },
+        ...getRows()
+      }),
+      set: (v2) => rendererConfigValue = v2
+    });
+    unpatches.push(() => {
+      Object.defineProperty(settingConstants, "SETTING_RENDERER_CONFIG", {
+        value: origRendererConfig,
+        writable: true,
+        get: void 0,
+        set: void 0
+      });
+    });
+    unpatches.push(after("default", SettingsOverviewScreen, (_2, ret) => {
+      if (useIsFirstRender())
+        return;
+      var { sections } = findInReactTree(ret, (i) => i.props?.sections).props;
+      var index = -~sections.findIndex((i) => i.label === i18n.Messages.ACCOUNT_SETTINGS) || 1;
+      Object.keys(registeredSections).forEach((sect) => {
+        sections.splice(index++, 0, {
+          label: sect,
+          title: sect,
+          settings: registeredSections[sect].map((a) => a.key)
+        });
+      });
+    }));
+  }
+  var settingConstants, SettingsOverviewScreen;
+  var init_tabs = __esm({
+    "src/lib/ui/settings/patches/tabs.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_patcher();
+      init_utils();
+      init_common();
+      init_components();
+      init_wrappers();
+      init_settings2();
+      init_shared();
+      settingConstants = findByPropsLazy("SETTING_RENDERER_CONFIG");
+      SettingsOverviewScreen = findByNameLazy("SettingsOverviewScreen", false);
+    }
+  });
+
+  // src/lib/ui/settings/index.tsx
+  var settings_exports2 = {};
+  __export(settings_exports2, {
+    patchSettings: () => patchSettings,
+    registerSection: () => registerSection,
+    registeredSections: () => registeredSections
+  });
+  function registerSection(section) {
+    registeredSections[section.name] = section.items;
+    return () => delete registeredSections[section.name];
+  }
+  function patchSettings() {
+    var unpatches = new Array();
+    patchPanelUI(unpatches);
+    patchTabsUI(unpatches);
+    return () => unpatches.forEach((u) => u());
+  }
+  var registeredSections;
+  var init_settings2 = __esm({
+    "src/lib/ui/settings/index.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_panel();
+      init_tabs();
+      registeredSections = {};
+    }
+  });
+
+  // src/core/ui/settings/pages/General/Version.tsx
+  function Version({ label, version, icon }) {
+    return /* @__PURE__ */ jsx(TableRow, {
+      label,
+      icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+        source: findAssetId(icon)
+      }),
+      trailing: /* @__PURE__ */ jsx(LegacyFormText, {
+        children: version
+      }),
+      onPress: () => {
+        clipboard.setString(`${label} - ${version}`);
+        showToast.showCopyToClipboard();
+      }
+    });
+  }
+  var init_Version = __esm({
+    "src/core/ui/settings/pages/General/Version.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_assets();
+      init_common();
+      init_components();
+      init_toasts();
     }
   });
 
@@ -4068,7 +4807,7 @@
         icon: "ic_phonelink_24px"
       },
       {
-        label: import_react_native9.Platform.select({
+        label: import_react_native13.Platform.select({
           android: Strings.CODENAME,
           ios: Strings.MACHINE_ID
         }),
@@ -4076,7 +4815,7 @@
         icon: "ic_compose_24px"
       }
     ];
-    return /* @__PURE__ */ jsx(import_react_native9.ScrollView, {
+    return /* @__PURE__ */ jsx(import_react_native13.ScrollView, {
       style: {
         flex: 1
       },
@@ -4092,10 +4831,10 @@
         children: [
           /* @__PURE__ */ jsx(TableRowGroup, {
             title: Strings.VERSIONS,
-            children: versions.map((v) => /* @__PURE__ */ jsx(Version, {
-              label: v.label,
-              version: v.version,
-              icon: v.icon
+            children: versions.map((v2) => /* @__PURE__ */ jsx(Version, {
+              label: v2.label,
+              version: v2.version,
+              icon: v2.icon
             }))
           }),
           /* @__PURE__ */ jsx(TableRowGroup, {
@@ -4110,7 +4849,7 @@
       })
     });
   }
-  var import_react_native9;
+  var import_react_native13;
   var init_About = __esm({
     "src/core/ui/settings/pages/General/About.tsx"() {
       "use strict";
@@ -4119,11 +4858,11 @@
       init_jsxRuntime();
       init_i18n();
       init_Version();
+      init_storage();
       init_debug();
       init_settings();
-      init_storage();
       init_components();
-      import_react_native9 = __toESM(require_react_native());
+      import_react_native13 = __toESM(require_react_native());
     }
   });
 
@@ -4136,7 +4875,7 @@
     useProxy(settings);
     var debugInfo = getDebugInfo();
     var navigation2 = NavigationNative.useNavigation();
-    return /* @__PURE__ */ jsx(import_react_native10.ScrollView, {
+    return /* @__PURE__ */ jsx(import_react_native14.ScrollView, {
       style: {
         flex: 1
       },
@@ -4216,7 +4955,7 @@
                 icon: /* @__PURE__ */ jsx(TableRow.Icon, {
                   source: findAssetId("ic_message_retry")
                 }),
-                onPress: () => import_react_native10.NativeModules.BundleUpdaterManager.reload()
+                onPress: () => import_react_native14.NativeModules.BundleUpdaterManager.reload()
               }),
               /* @__PURE__ */ jsx(TableRow, {
                 label: settings.safeMode?.enabled ? Strings.RELOAD_IN_NORMAL_MODE : Strings.RELOAD_IN_SAFE_MODE,
@@ -4232,8 +4971,8 @@
                   source: findAssetId("ic_progress_wrench_24px")
                 }),
                 value: settings.developerSettings,
-                onValueChange: (v) => {
-                  settings.developerSettings = v;
+                onValueChange: (v2) => {
+                  settings.developerSettings = v2;
                 }
               })
             ]
@@ -4247,8 +4986,8 @@
                 source: findAssetId("ic_progress_wrench_24px")
               }),
               value: settings.enableDiscordDeveloperSettings,
-              onValueChange: (v) => {
-                settings.enableDiscordDeveloperSettings = v;
+              onValueChange: (v2) => {
+                settings.enableDiscordDeveloperSettings = v2;
               }
             })
           })
@@ -4256,7 +4995,7 @@
       })
     });
   }
-  var import_react_native10;
+  var import_react_native14;
   var init_General = __esm({
     "src/core/ui/settings/pages/General/index.tsx"() {
       "use strict";
@@ -4266,14 +5005,14 @@
       init_i18n();
       init_settings3();
       init_About();
+      init_storage();
       init_assets();
       init_debug();
       init_settings();
-      init_storage();
       init_constants();
       init_common();
       init_components();
-      import_react_native10 = __toESM(require_react_native());
+      import_react_native14 = __toESM(require_react_native());
     }
   });
 
@@ -4295,50 +5034,6 @@
     }
   });
 
-  // src/metro/index.ts
-  var metro_exports = {};
-  __export(metro_exports, {
-    common: () => common_exports,
-    factories: () => factories_exports,
-    filters: () => filters_exports,
-    findAllExports: () => findAllExports,
-    findAllModule: () => findAllModule,
-    findAllModuleId: () => findAllModuleId,
-    findByDisplayName: () => findByDisplayName,
-    findByDisplayNameAll: () => findByDisplayNameAll,
-    findByDisplayNameLazy: () => findByDisplayNameLazy,
-    findByFilePath: () => findByFilePath,
-    findByFilePathLazy: () => findByFilePathLazy,
-    findByName: () => findByName,
-    findByNameAll: () => findByNameAll,
-    findByNameLazy: () => findByNameLazy,
-    findByProps: () => findByProps,
-    findByPropsAll: () => findByPropsAll,
-    findByPropsLazy: () => findByPropsLazy,
-    findByStoreName: () => findByStoreName,
-    findByStoreNameLazy: () => findByStoreNameLazy,
-    findByTypeName: () => findByTypeName,
-    findByTypeNameAll: () => findByTypeNameAll,
-    findByTypeNameLazy: () => findByTypeNameLazy,
-    findExports: () => findExports,
-    findModule: () => findModule,
-    findModuleId: () => findModuleId,
-    lazy: () => lazy_exports2
-  });
-  var init_metro = __esm({
-    "src/metro/index.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_common();
-      init_factories();
-      init_filters();
-      init_finders();
-      init_lazy2();
-      init_wrappers();
-    }
-  });
-
   // node_modules/.pnpm/fuzzysort@3.0.2/node_modules/fuzzysort/fuzzysort.js
   var require_fuzzysort = __commonJS({
     "node_modules/.pnpm/fuzzysort@3.0.2/node_modules/fuzzysort/fuzzysort.js"(exports, module) {
@@ -4356,7 +5051,7 @@
           module.exports = UMD();
         else
           root["fuzzysort"] = UMD();
-      })(exports, (_) => {
+      })(exports, (_2) => {
         "use strict";
         var single = (search, target) => {
           if (!search || !target)
@@ -4382,12 +5077,12 @@
           var targetsLen = targets.length;
           function push_result(result2) {
             if (resultsLen < limit) {
-              q.add(result2);
+              q3.add(result2);
               ++resultsLen;
             } else {
               ++limitedCount;
-              if (result2._score > q.peek()._score)
-                q.replaceTop(result2);
+              if (result2._score > q3.peek()._score)
+                q3.replaceTop(result2);
             }
           }
           if (options?.key) {
@@ -4539,7 +5234,7 @@
             return noResults;
           var results = new Array(resultsLen);
           for (var i = resultsLen - 1; i >= 0; --i)
-            results[i] = q.poll();
+            results[i] = q3.poll();
           results.total = resultsLen + limitedCount;
           return results;
         };
@@ -4616,7 +5311,7 @@
             {
               key: "indexes",
               get: function get() {
-                return this._indexes.slice(0, this._indexes.len).sort((a, b) => a - b);
+                return this._indexes.slice(0, this._indexes.len).sort((a, b3) => a - b3);
               }
             },
             {
@@ -5102,8 +5797,8 @@
             obj = obj[segs[i]];
           return obj;
         };
-        var isPrepared = (x) => {
-          return typeof x === "object" && typeof x._bitflags === "number";
+        var isPrepared = (x2) => {
+          return typeof x2 === "object" && typeof x2._bitflags === "number";
         };
         var INFINITY = Infinity;
         var NEGATIVE_INFINITY = -INFINITY;
@@ -5112,34 +5807,34 @@
         var NULL = null;
         var noTarget = prepare("");
         var fastpriorityqueue = (r) => {
-          var e = [], o = 0, a = {}, v = (r2) => {
-            for (var a2 = 0, v2 = e[a2], c = 1; c < o; ) {
-              var s = c + 1;
-              a2 = c, s < o && e[s]._score < e[c]._score && (a2 = s), e[a2 - 1 >> 1] = e[a2], c = 1 + (a2 << 1);
+          var e = [], o = 0, a = {}, v2 = (r2) => {
+            for (var a2 = 0, v3 = e[a2], c2 = 1; c2 < o; ) {
+              var s = c2 + 1;
+              a2 = c2, s < o && e[s]._score < e[c2]._score && (a2 = s), e[a2 - 1 >> 1] = e[a2], c2 = 1 + (a2 << 1);
             }
-            for (var f = a2 - 1 >> 1; a2 > 0 && v2._score < e[f]._score; f = (a2 = f) - 1 >> 1)
+            for (var f = a2 - 1 >> 1; a2 > 0 && v3._score < e[f]._score; f = (a2 = f) - 1 >> 1)
               e[a2] = e[f];
-            e[a2] = v2;
+            e[a2] = v3;
           };
           return a.add = (r2) => {
             var a2 = o;
             e[o++] = r2;
-            for (var v2 = a2 - 1 >> 1; a2 > 0 && r2._score < e[v2]._score; v2 = (a2 = v2) - 1 >> 1)
-              e[a2] = e[v2];
+            for (var v3 = a2 - 1 >> 1; a2 > 0 && r2._score < e[v3]._score; v3 = (a2 = v3) - 1 >> 1)
+              e[a2] = e[v3];
             e[a2] = r2;
           }, a.poll = (r2) => {
             if (0 !== o) {
               var a2 = e[0];
-              return e[0] = e[--o], v(), a2;
+              return e[0] = e[--o], v2(), a2;
             }
           }, a.peek = (r2) => {
             if (0 !== o)
               return e[0];
           }, a.replaceTop = (r2) => {
-            e[0] = r2, v();
+            e[0] = r2, v2();
           }, a;
         };
-        var q = fastpriorityqueue();
+        var q3 = fastpriorityqueue();
         return {
           "single": single,
           "go": go,
@@ -5147,15 +5842,6 @@
           "cleanup": cleanup
         };
       });
-    }
-  });
-
-  // globals:react
-  var require_react = __commonJS({
-    "globals:react"(exports, module) {
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      module.exports = require_depsModule()["react"];
     }
   });
 
@@ -5170,7 +5856,7 @@
     }
     return /* @__PURE__ */ jsx(AlertModal, {
       title: props.label,
-      content: "Type in the source URL you want to install from:",
+      content: "Enter the URL of the source you want to install from:",
       extraContent: /* @__PURE__ */ jsxs(Stack, {
         style: {
           marginTop: -12
@@ -5180,8 +5866,8 @@
             autoFocus: true,
             isClearable: true,
             value,
-            onChange: (v) => {
-              setValue(v);
+            onChange: (v2) => {
+              setValue(v2);
               if (error)
                 setError("");
             },
@@ -5190,7 +5876,7 @@
             state: error ? "error" : void 0,
             errorMessage: error || void 0
           }),
-          /* @__PURE__ */ jsx(import_react_native11.ScrollView, {
+          /* @__PURE__ */ jsx(import_react_native15.ScrollView, {
             horizontal: true,
             showsHorizontalScrollIndicator: false,
             style: {
@@ -5228,7 +5914,8 @@
     useProxy(settings);
     var [search, setSearch] = React.useState("");
     var [sortFn, setSortFn] = React.useState(() => null);
-    var results = (0, import_react.useMemo)(() => {
+    var { bottom: bottomInset } = useSafeAreaInsets();
+    var results = (0, import_react3.useMemo)(() => {
       var values = props.items;
       if (props.resolveItem)
         values = values.map(props.resolveItem);
@@ -5244,7 +5931,7 @@
       sortFn,
       search
     ]);
-    var onInstallPress = (0, import_react.useCallback)(() => {
+    var onInstallPress = (0, import_react3.useCallback)(() => {
       if (!props.installAction)
         return () => {
         };
@@ -5259,7 +5946,7 @@
       }
     }, []);
     if (results.length === 0 && !search) {
-      return /* @__PURE__ */ jsxs(import_react_native11.View, {
+      return /* @__PURE__ */ jsxs(import_react_native15.View, {
         style: {
           gap: 32,
           flexGrow: 1,
@@ -5267,13 +5954,13 @@
           alignItems: "center"
         },
         children: [
-          /* @__PURE__ */ jsxs(import_react_native11.View, {
+          /* @__PURE__ */ jsxs(import_react_native15.View, {
             style: {
               gap: 8,
               alignItems: "center"
             },
             children: [
-              /* @__PURE__ */ jsx(import_react_native11.Image, {
+              /* @__PURE__ */ jsx(import_react_native15.Image, {
                 source: findAssetId("empty_quick_switcher")
               }),
               /* @__PURE__ */ jsx(Text, {
@@ -5292,12 +5979,12 @@
         ]
       });
     }
-    var headerElement = /* @__PURE__ */ jsxs(import_react_native11.View, {
+    var headerElement = /* @__PURE__ */ jsxs(import_react_native15.View, {
       style: {
         paddingBottom: 8
       },
       children: [
-        settings.safeMode?.enabled && /* @__PURE__ */ jsxs(import_react_native11.View, {
+        settings.safeMode?.enabled && /* @__PURE__ */ jsxs(import_react_native15.View, {
           style: {
             marginBottom: 10
           },
@@ -5309,7 +5996,7 @@
             props.safeModeHint?.footer
           ]
         }),
-        /* @__PURE__ */ jsxs(import_react_native11.View, {
+        /* @__PURE__ */ jsxs(import_react_native15.View, {
           style: {
             flexDirection: "row",
             gap: 8
@@ -5320,7 +6007,7 @@
                 flexGrow: 1
               },
               isRound: !!props.sortOptions,
-              onChangeText: (v) => setSearch(v)
+              onChangeText: (v2) => setSearch(v2)
             }),
             props.sortOptions && /* @__PURE__ */ jsx(IconButton, {
               icon: findAssetId("ic_forum_channel_sort_order_24px"),
@@ -5340,7 +6027,7 @@
             })
           ]
         }),
-        props.ListHeaderComponent && /* @__PURE__ */ jsx(props.ListHeaderComponent, {})
+        props.ListHeaderComponent && !search && /* @__PURE__ */ jsx(props.ListHeaderComponent, {})
       ]
     });
     return /* @__PURE__ */ jsxs(ErrorBoundary, {
@@ -5350,14 +6037,14 @@
           extraData: search,
           estimatedItemSize: 136,
           ListHeaderComponent: headerElement,
-          ListEmptyComponent: () => /* @__PURE__ */ jsxs(import_react_native11.View, {
+          ListEmptyComponent: () => /* @__PURE__ */ jsxs(import_react_native15.View, {
             style: {
               gap: 12,
               padding: 12,
               alignItems: "center"
             },
             children: [
-              /* @__PURE__ */ jsx(import_react_native11.Image, {
+              /* @__PURE__ */ jsx(import_react_native15.Image, {
                 source: findAssetId("devices_not_found")
               }),
               /* @__PURE__ */ jsx(Text, {
@@ -5371,7 +6058,7 @@
             padding: 8,
             paddingHorizontal: 12
           },
-          ItemSeparatorComponent: () => /* @__PURE__ */ jsx(import_react_native11.View, {
+          ItemSeparatorComponent: () => /* @__PURE__ */ jsx(import_react_native15.View, {
             style: {
               height: 8
             }
@@ -5383,22 +6070,24 @@
           })
         }),
         props.installAction && /* @__PURE__ */ jsx(FloatingActionButton, {
+          positionBottom: bottomInset + 8,
           icon: findAssetId("PlusLargeIcon"),
           onPress: onInstallPress
         })
       ]
     });
   }
-  var import_fuzzysort, import_react, import_react_native11, showSimpleActionSheet, hideActionSheet, openAlert, dismissAlert, AlertModal, AlertActionButton;
+  var import_fuzzysort, import_react3, import_react_native15, showSimpleActionSheet, hideActionSheet, openAlert, dismissAlert;
   var init_AddonPage = __esm({
     "src/core/ui/components/AddonPage.tsx"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_jsxRuntime();
+      init_storage();
       init_assets();
       init_settings();
-      init_storage();
+      init_AlertModal();
       init_isValidHttpUrl();
       init_lazy();
       init_metro();
@@ -5406,11 +6095,10 @@
       init_components();
       init_components2();
       import_fuzzysort = __toESM(require_fuzzysort());
-      import_react = __toESM(require_react());
-      import_react_native11 = __toESM(require_react_native());
+      import_react3 = __toESM(require_react());
+      import_react_native15 = __toESM(require_react_native());
       ({ showSimpleActionSheet, hideActionSheet } = lazyDestructure(() => findByProps("showSimpleActionSheet")));
       ({ openAlert, dismissAlert } = lazyDestructure(() => findByProps("openAlert", "dismissAlert")));
-      ({ AlertModal, AlertActionButton } = lazyDestructure(() => findByProps("AlertModal", "AlertActions")));
     }
   });
 
@@ -5433,36 +6121,18 @@
     }
   });
 
-  // src/lib/ui/sheets.ts
-  function showSheet(key, lazyImport, props) {
-    actionSheet.openLazy(lazyImport, key, props ?? {});
-  }
-  function hideSheet(key) {
-    actionSheet.hideActionSheet(key);
-  }
-  var actionSheet;
-  var init_sheets = __esm({
-    "src/lib/ui/sheets.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_wrappers();
-      actionSheet = findByPropsLazy("openLazy", "hideActionSheet");
-    }
-  });
-
   // src/core/ui/settings/pages/Plugins/components/PluginCard.tsx
   function getHighlightColor() {
     return (0, import_chroma_js2.default)(tokens.unsafe_rawColors.YELLOW_300).alpha(0.3).hex();
   }
   function Title() {
-    var styles3 = usePluginCardStyles();
+    var styles = usePluginCardStyles();
     var { plugin, result } = useCardContext();
-    var highlightedNode = result[0].highlight((m, i) => /* @__PURE__ */ jsx(Text, {
+    var highlightedNode = result[0].highlight((m2, i) => /* @__PURE__ */ jsx(Text, {
       style: {
         backgroundColor: getHighlightColor()
       },
-      children: m
+      children: m2
     }, i));
     var icon = plugin.icon && findAssetId(plugin.icon);
     var textNode = /* @__PURE__ */ jsx(Text, {
@@ -5470,15 +6140,15 @@
       variant: "heading-lg/semibold",
       children: highlightedNode.length ? highlightedNode : plugin.name
     });
-    return /* @__PURE__ */ jsxs(import_react_native12.View, {
+    return /* @__PURE__ */ jsxs(import_react_native16.View, {
       style: {
         flexDirection: "row",
         alignItems: "center",
         gap: 6
       },
       children: [
-        icon && /* @__PURE__ */ jsx(import_react_native12.Image, {
-          style: styles3.smallIcon,
+        icon && /* @__PURE__ */ jsx(import_react_native16.Image, {
+          style: styles.smallIcon,
           source: icon
         }),
         textNode
@@ -5489,11 +6159,11 @@
     var { plugin, result } = useCardContext();
     if (!plugin.authors)
       return null;
-    var highlightedNode = result[2].highlight((m, i) => /* @__PURE__ */ jsx(Text, {
+    var highlightedNode = result[2].highlight((m2, i) => /* @__PURE__ */ jsx(Text, {
       style: {
         backgroundColor: getHighlightColor()
       },
-      children: m
+      children: m2
     }, i));
     if (highlightedNode.length > 0)
       return /* @__PURE__ */ jsxs(Text, {
@@ -5520,11 +6190,11 @@
   }
   function Description() {
     var { plugin, result } = useCardContext();
-    var highlightedNode = result[1].highlight((m, i) => /* @__PURE__ */ jsx(Text, {
+    var highlightedNode = result[1].highlight((m2, i) => /* @__PURE__ */ jsx(Text, {
       style: {
         backgroundColor: getHighlightColor()
       },
-      children: m
+      children: m2
     }, i));
     return /* @__PURE__ */ jsx(Text, {
       variant: "text-md/medium",
@@ -5534,7 +6204,7 @@
   function PluginCard({ result, item: plugin }) {
     plugin.usePluginState();
     var [, forceUpdate] = React.useReducer(() => ({}), 0);
-    var cardContextValue = (0, import_react2.useMemo)(() => ({
+    var cardContextValue = (0, import_react4.useMemo)(() => ({
       plugin,
       result
     }), [
@@ -5547,13 +6217,13 @@
         children: /* @__PURE__ */ jsxs(Stack, {
           spacing: 16,
           children: [
-            /* @__PURE__ */ jsxs(import_react_native12.View, {
+            /* @__PURE__ */ jsxs(import_react_native16.View, {
               style: {
                 flexDirection: "row",
                 justifyContent: "space-between"
               },
               children: [
-                /* @__PURE__ */ jsxs(import_react_native12.View, {
+                /* @__PURE__ */ jsxs(import_react_native16.View, {
                   style: {
                     flexShrink: 1
                   },
@@ -5562,7 +6232,7 @@
                     /* @__PURE__ */ jsx(Authors, {})
                   ]
                 }),
-                /* @__PURE__ */ jsx(import_react_native12.View, {
+                /* @__PURE__ */ jsx(import_react_native16.View, {
                   children: /* @__PURE__ */ jsxs(Stack, {
                     spacing: 12,
                     direction: "horizontal",
@@ -5570,8 +6240,8 @@
                       /* @__PURE__ */ jsx(Actions, {}),
                       /* @__PURE__ */ jsx(TableSwitch, {
                         value: plugin.isEnabled(),
-                        onValueChange: (v) => {
-                          plugin.toggle(v);
+                        onValueChange: (v2) => {
+                          plugin.toggle(v2);
                           forceUpdate();
                         }
                       })
@@ -5586,7 +6256,7 @@
       })
     });
   }
-  var import_chroma_js2, import_react2, import_react_native12, CardContext, useCardContext, Actions;
+  var import_chroma_js2, import_react4, import_react_native16, CardContext, useCardContext, Actions;
   var init_PluginCard = __esm({
     "src/core/ui/settings/pages/Plugins/components/PluginCard.tsx"() {
       "use strict";
@@ -5599,14 +6269,14 @@
       init_components();
       init_sheets();
       import_chroma_js2 = __toESM(require_chroma_js());
-      import_react2 = __toESM(require_react());
-      import_react_native12 = __toESM(require_react_native());
-      CardContext = /* @__PURE__ */ (0, import_react2.createContext)(null);
-      useCardContext = () => (0, import_react2.useContext)(CardContext);
-      Actions = /* @__PURE__ */ (0, import_react2.memo)(() => {
+      import_react4 = __toESM(require_react());
+      import_react_native16 = __toESM(require_react_native());
+      CardContext = /* @__PURE__ */ (0, import_react4.createContext)(null);
+      useCardContext = () => (0, import_react4.useContext)(CardContext);
+      Actions = () => {
         var { plugin } = useCardContext();
         var navigation2 = NavigationNative.useNavigation();
-        return /* @__PURE__ */ jsxs(import_react_native12.View, {
+        return /* @__PURE__ */ jsxs(import_react_native16.View, {
           style: {
             flexDirection: "row",
             gap: 6
@@ -5633,7 +6303,7 @@
             })
           ]
         });
-      });
+      };
     }
   });
 
@@ -5645,8 +6315,8 @@
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_async_to_generator();
-      init_settings();
       init_storage();
+      init_settings();
       init_utils();
       init_constants();
       init_logger();
@@ -5657,7 +6327,7 @@
         pluginFetch(url2) {
           return _async_to_generator(function* () {
             if (url2.startsWith(VD_PROXY_PREFIX)) {
-              url2 = url2.replace(VD_PROXY_PREFIX, BUNNY_PROXY_PREFIX);
+              url2 = url2.replace("https://felocord-mod.github.io/plugins-proxy", BUNNY_PROXY_PREFIX).replace(VD_PROXY_PREFIX, BUNNY_PROXY_PREFIX);
             }
             return yield safeFetch(url2, {
               cache: "no-store"
@@ -5717,7 +6387,7 @@
                 // Wrapping this with wrapSync is NOT an option.
                 storage: yield createStorage(createMMKVBackend(plugin.id))
               },
-              logger: new DiscordLogger(`Felocord \xBB ${plugin.manifest.name}`)
+              logger: new LoggerClass(`Felocord \xBB ${plugin.manifest.name}`)
             };
             var pluginString = `vendetta=>{return ${plugin.js}}
 //# sourceURL=${plugin.id}`;
@@ -5790,7 +6460,7 @@
             var allIds = Object.keys(plugins);
             if (!settings.safeMode?.enabled) {
               var _this = this;
-              yield allSettled(allIds.filter((pl) => plugins[pl].enabled).map(function() {
+              yield allSettled(allIds.filter((pl) => plugins[pl].enabled).map(/* @__PURE__ */ function() {
                 var _ref = _async_to_generator(function* (pl) {
                   return plugins[pl].update && (yield _this.fetchPlugin(pl).catch((e) => logger.error(e.message))), yield _this.startPlugin(pl);
                 });
@@ -5811,24 +6481,136 @@
     }
   });
 
-  // src/lib/utils/types.ts
-  var ButtonColors;
-  var init_types = __esm({
-    "src/lib/utils/types.ts"() {
+  // src/core/plugins/quickinstall/forumPost.tsx
+  function useExtractThreadContent(thread, _firstMessage = null, actionSheet3 = false) {
+    if (thread.guild_id !== VD_DISCORD_SERVER_ID)
+      return;
+    var postType;
+    if (thread.parent_id === VD_PLUGINS_CHANNEL_ID) {
+      postType = "Plugin";
+    } else if (thread.parent_id === VD_THEMES_CHANNEL_ID && isThemeSupported()) {
+      postType = "Theme";
+    } else
+      return;
+    var { firstMessage } = actionSheet3 ? useFirstForumPostMessage(thread) : {
+      firstMessage: _firstMessage
+    };
+    var urls = firstMessage?.content?.match(HTTP_REGEX_MULTI)?.filter(postMap[postType].urlsFilter);
+    if (!urls || !urls[0])
+      return;
+    if (postType === "Plugin" && !urls[0].endsWith("/"))
+      urls[0] += "/";
+    return [
+      postType,
+      urls[0]
+    ];
+  }
+  function useInstaller(thread, firstMessage = null, actionSheet3 = false) {
+    var [postType, url2] = useExtractThreadContent(thread, firstMessage, actionSheet3) ?? [];
+    useProxy(VdPluginManager.plugins);
+    useProxy(themes);
+    var [isInstalling, setIsInstalling] = React.useState(false);
+    if (!postType || !url2)
+      return [
+        true
+      ];
+    var isInstalled = Boolean(postMap[postType].storage[url2]);
+    var installOrRemove = /* @__PURE__ */ function() {
+      var _ref = _async_to_generator(function* () {
+        setIsInstalling(true);
+        try {
+          yield postMap[postType].installOrRemove(url2);
+        } catch (e) {
+          showToast(e.message, findAssetId("Small"));
+        } finally {
+          setIsInstalling(false);
+        }
+      });
+      return function installOrRemove2() {
+        return _ref.apply(this, arguments);
+      };
+    }();
+    return [
+      false,
+      postType,
+      isInstalled,
+      isInstalling,
+      installOrRemove
+    ];
+  }
+  var useFirstForumPostMessage, forumReactions, postMap, installButtonPatch, forumPost_default;
+  var init_forumPost = __esm({
+    "src/core/plugins/quickinstall/forumPost.tsx"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
-      (function(ButtonColors2) {
-        ButtonColors2["BRAND"] = "brand";
-        ButtonColors2["RED"] = "red";
-        ButtonColors2["GREEN"] = "green";
-        ButtonColors2["PRIMARY"] = "primary";
-        ButtonColors2["TRANSPARENT"] = "transparent";
-        ButtonColors2["GREY"] = "grey";
-        ButtonColors2["LIGHTGREY"] = "lightgrey";
-        ButtonColors2["WHITE"] = "white";
-        ButtonColors2["LINK"] = "link";
-      })(ButtonColors || (ButtonColors = {}));
+      init_async_to_generator();
+      init_jsxRuntime();
+      init_i18n();
+      init_plugins();
+      init_storage();
+      init_themes();
+      init_assets();
+      init_loader();
+      init_patcher();
+      init_constants();
+      init_lazy();
+      init_components();
+      init_wrappers();
+      init_components2();
+      init_toasts();
+      ({ useFirstForumPostMessage } = lazyDestructure(() => findByProps("useFirstForumPostMessage")));
+      forumReactions = findByPropsLazy("MostCommonForumPostReaction");
+      postMap = {
+        Plugin: {
+          storage: VdPluginManager.plugins,
+          urlsFilter: (url2) => url2.startsWith(VD_PROXY_PREFIX),
+          installOrRemove: (url2) => {
+            var isInstalled = postMap.Plugin.storage[url2];
+            return isInstalled ? VdPluginManager.removePlugin(url2) : VdPluginManager.installPlugin(url2);
+          }
+        },
+        Theme: {
+          storage: themes,
+          urlsFilter: (url2) => url2.endsWith(".json"),
+          installOrRemove: (url2) => {
+            var isInstalled = postMap.Theme.storage[url2];
+            return isInstalled ? removeTheme(url2) : installTheme(url2);
+          }
+        }
+      };
+      installButtonPatch = () => after("MostCommonForumPostReaction", forumReactions, ([{ thread, firstMessage }], res) => {
+        var [shouldReturn, _2, installed, loading, installOrRemove] = useInstaller(thread, firstMessage, true);
+        if (shouldReturn)
+          return;
+        return /* @__PURE__ */ jsxs(Fragment, {
+          children: [
+            res,
+            /* @__PURE__ */ jsx(ErrorBoundary, {
+              children: /* @__PURE__ */ jsx(Button, {
+                size: "sm",
+                loading,
+                disabled: loading,
+                // variant={installed ? "destructive" : "primary"} crashes older version because "destructive" was renamed from "danger" and there's no sane way for compat check horror
+                variant: installed ? "secondary" : "primary",
+                text: installed ? Strings.UNINSTALL : Strings.INSTALL,
+                onPress: installOrRemove,
+                icon: findAssetId(installed ? "ic_message_delete" : "DownloadIcon"),
+                style: {
+                  marginLeft: 8
+                }
+              })
+            })
+          ]
+        });
+      });
+      forumPost_default = () => {
+        var patches2 = [
+          // actionSheetPatch(),
+          installButtonPatch()
+        ];
+        return () => patches2.map((p) => p());
+      };
     }
   });
 
@@ -5855,8 +6637,8 @@
       children: /* @__PURE__ */ jsx(LegacyFormInput, {
         placeholder,
         value,
-        onChange: (v) => {
-          setValue(typeof v === "string" ? v : v.text);
+        onChange: (v2) => {
+          setValue(typeof v2 === "string" ? v2 : v2.text);
           if (error)
             setError("");
         },
@@ -5885,13 +6667,7 @@
     }
   });
 
-  // src/lib/ui/alerts.ts
-  var alerts_exports = {};
-  __export(alerts_exports, {
-    showConfirmationAlert: () => showConfirmationAlert,
-    showCustomAlert: () => showCustomAlert,
-    showInputAlert: () => showInputAlert
-  });
+  // src/core/vendetta/alerts.ts
   function showConfirmationAlert(options) {
     var internalOptions = options;
     internalOptions.body = options.content;
@@ -5901,7 +6677,7 @@
   }
   var Alerts2, showCustomAlert, showInputAlert;
   var init_alerts = __esm({
-    "src/lib/ui/alerts.ts"() {
+    "src/core/vendetta/alerts.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
@@ -5918,695 +6694,264 @@
     }
   });
 
-  // src/core/ui/settings/pages/Plugins/sheets/VdPluginInfoActionSheet.tsx
-  var VdPluginInfoActionSheet_exports = {};
-  __export(VdPluginInfoActionSheet_exports, {
-    default: () => PluginInfoActionSheet
-  });
-  function PluginInfoActionSheet({ plugin, navigation: navigation2 }) {
-    plugin.usePluginState();
-    var vdPlugin = VdPluginManager.plugins[plugin.id];
-    var SettingsComponent = plugin.getPluginSettingsComponent();
-    return /* @__PURE__ */ jsx(ActionSheet, {
-      children: /* @__PURE__ */ jsxs(import_react_native13.ScrollView, {
-        children: [
-          /* @__PURE__ */ jsxs(import_react_native13.View, {
-            style: {
-              flexDirection: "row",
-              alignItems: "center",
-              paddingVertical: 24
-            },
-            children: [
-              /* @__PURE__ */ jsx(Text, {
-                variant: "heading-xl/semibold",
-                children: plugin.name
-              }),
-              /* @__PURE__ */ jsx(import_react_native13.View, {
-                style: {
-                  marginLeft: "auto"
-                },
-                children: SettingsComponent && /* @__PURE__ */ jsx(Button, {
-                  size: "md",
-                  text: "Configure",
-                  variant: "secondary",
-                  icon: findAssetId("WrenchIcon"),
-                  onPress: () => {
-                    hideSheet("PluginInfoActionSheet");
-                    navigation2.push("BUNNY_CUSTOM_PAGE", {
-                      title: plugin.name,
-                      render: SettingsComponent
-                    });
-                  }
-                })
-              })
-            ]
-          }),
-          /* @__PURE__ */ jsxs(ActionSheetRow.Group, {
-            children: [
-              /* @__PURE__ */ jsx(ActionSheetRow, {
-                label: Strings.REFETCH,
-                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                  source: findAssetId("RetryIcon")
-                }),
-                onPress: /* @__PURE__ */ _async_to_generator(function* () {
-                  if (vdPlugin.enabled)
-                    VdPluginManager.stopPlugin(plugin.id, false);
-                  try {
-                    yield VdPluginManager.fetchPlugin(plugin.id);
-                    showToast(Strings.PLUGIN_REFETCH_SUCCESSFUL, findAssetId("toast_image_saved"));
-                  } catch (e) {
-                    showToast(Strings.PLUGIN_REFETCH_FAILED, findAssetId("Small"));
-                  }
-                  if (vdPlugin.enabled)
-                    yield VdPluginManager.startPlugin(plugin.id);
-                  hideSheet("PluginInfoActionSheet");
-                })
-              }),
-              /* @__PURE__ */ jsx(ActionSheetRow, {
-                label: Strings.COPY_URL,
-                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                  source: findAssetId("copy")
-                }),
-                onPress: () => {
-                  clipboard.setString(plugin.id);
-                  showToast.showCopyToClipboard();
-                }
-              }),
-              /* @__PURE__ */ jsx(ActionSheetRow, {
-                label: vdPlugin.update ? Strings.DISABLE_UPDATES : Strings.ENABLE_UPDATES,
-                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                  source: findAssetId("ic_download_24px")
-                }),
-                onPress: () => {
-                  vdPlugin.update = !vdPlugin.update;
-                  showToast(formatString("TOASTS_PLUGIN_UPDATE", {
-                    update: vdPlugin.update,
-                    name: plugin.name
-                  }), findAssetId("toast_image_saved"));
-                }
-              }),
-              /* @__PURE__ */ jsx(ActionSheetRow, {
-                label: Strings.CLEAR_DATA,
-                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                  source: findAssetId("ic_duplicate")
-                }),
-                onPress: () => showConfirmationAlert({
-                  title: Strings.HOLD_UP,
-                  content: formatString("ARE_YOU_SURE_TO_CLEAR_DATA", {
-                    name: plugin.name
-                  }),
-                  confirmText: Strings.CLEAR,
-                  cancelText: Strings.CANCEL,
-                  confirmColor: ButtonColors.RED,
-                  onConfirm: /* @__PURE__ */ _async_to_generator(function* () {
-                    if (vdPlugin.enabled)
-                      VdPluginManager.stopPlugin(plugin.id, false);
-                    try {
-                      yield VdPluginManager.fetchPlugin(plugin.id);
-                      showToast(Strings.PLUGIN_REFETCH_SUCCESSFUL, findAssetId("toast_image_saved"));
-                    } catch (e) {
-                      showToast(Strings.PLUGIN_REFETCH_FAILED, findAssetId("Small"));
-                    }
-                    var message;
-                    try {
-                      purgeStorage(plugin.id);
-                      message = [
-                        "CLEAR_DATA_SUCCESSFUL",
-                        "trash"
-                      ];
-                    } catch (e) {
-                      message = [
-                        "CLEAR_DATA_FAILED",
-                        "Small"
-                      ];
-                    }
-                    showToast(formatString(message[0], {
-                      name: plugin.name
-                    }), findAssetId(message[1]));
-                    if (vdPlugin.enabled)
-                      yield VdPluginManager.startPlugin(plugin.id);
-                    hideSheet("PluginInfoActionSheet");
-                  })
-                })
-              }),
-              /* @__PURE__ */ jsx(ActionSheetRow, {
-                label: Strings.DELETE,
-                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                  source: findAssetId("ic_message_delete")
-                }),
-                onPress: () => showConfirmationAlert({
-                  title: Strings.HOLD_UP,
-                  content: formatString("ARE_YOU_SURE_TO_DELETE_PLUGIN", {
-                    name: plugin.name
-                  }),
-                  confirmText: Strings.DELETE,
-                  cancelText: Strings.CANCEL,
-                  confirmColor: ButtonColors.RED,
-                  onConfirm: () => {
-                    try {
-                      VdPluginManager.removePlugin(plugin.id);
-                    } catch (e) {
-                      showToast(String(e), findAssetId("Small"));
-                    }
-                    hideSheet("PluginInfoActionSheet");
-                  }
-                })
-              })
-            ]
-          })
-        ]
-      })
+  // src/core/plugins/quickinstall/url.tsx
+  function typeFromUrl(url2) {
+    if (url2.startsWith(VD_PROXY_PREFIX)) {
+      return "plugin";
+    } else if (url2.endsWith(".json") && isThemeSupported()) {
+      return "theme";
+    }
+  }
+  function installWithToast(type, url2) {
+    (type === "plugin" ? VdPluginManager.installPlugin.bind(VdPluginManager) : installTheme)(url2).then(() => {
+      showToast(Strings.SUCCESSFULLY_INSTALLED, findAssetId("Check"));
+    }).catch((e) => {
+      showToast(e.message, findAssetId("Small"));
     });
   }
-  var import_react_native13;
-  var init_VdPluginInfoActionSheet = __esm({
-    "src/core/ui/settings/pages/Plugins/sheets/VdPluginInfoActionSheet.tsx"() {
+  var showSimpleActionSheet2, handleClick, openURL, getChannelId, getChannel, url_default;
+  var init_url = __esm({
+    "src/core/plugins/quickinstall/url.tsx"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_async_to_generator();
-      init_jsxRuntime();
       init_i18n();
-      init_plugins();
-      init_assets();
-      init_storage();
-      init_types();
-      init_common();
-      init_components();
       init_alerts();
-      init_sheets();
-      init_toasts();
-      import_react_native13 = __toESM(require_react_native());
-    }
-  });
-
-  // src/core/ui/settings/pages/Plugins/models/vendetta.ts
-  function unifyVdPlugin(vdPlugin) {
-    return {
-      id: vdPlugin.id,
-      name: vdPlugin.manifest.name,
-      description: vdPlugin.manifest.description,
-      authors: vdPlugin.manifest.authors,
-      icon: vdPlugin.manifest.vendetta?.icon,
-      isEnabled: () => vdPlugin.enabled,
-      isInstalled: () => Boolean(vdPlugin && VdPluginManager.plugins[vdPlugin.id]),
-      usePluginState() {
-        useProxy(VdPluginManager.plugins[vdPlugin.id]);
-      },
-      toggle(start) {
-        start ? VdPluginManager.startPlugin(vdPlugin.id) : VdPluginManager.stopPlugin(vdPlugin.id);
-      },
-      resolveSheetComponent() {
-        return Promise.resolve().then(() => (init_VdPluginInfoActionSheet(), VdPluginInfoActionSheet_exports));
-      },
-      getPluginSettingsComponent() {
-        return VdPluginManager.getSettings(vdPlugin.id);
-      }
-    };
-  }
-  var init_vendetta = __esm({
-    "src/core/ui/settings/pages/Plugins/models/vendetta.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
       init_plugins();
-      init_storage();
-    }
-  });
-
-  // src/core/ui/settings/pages/Plugins/index.tsx
-  var Plugins_exports = {};
-  __export(Plugins_exports, {
-    default: () => Plugins
-  });
-  function PluginPage(props) {
-    var items = props.useItems();
-    return /* @__PURE__ */ jsx(AddonPage, {
-      CardComponent: PluginCard,
-      title: Strings.PLUGINS,
-      searchKeywords: [
-        "name",
-        "description",
-        (p) => p.authors?.map((a) => typeof a === "string" ? a : a.name).join()
-      ],
-      sortOptions: {
-        "Name (A-Z)": (a, b) => a.name.localeCompare(b.name),
-        "Name (Z-A)": (a, b) => b.name.localeCompare(a.name)
-      },
-      safeModeHint: {
-        message: Strings.SAFE_MODE_NOTICE_PLUGINS
-      },
-      items,
-      ...props
-    });
-  }
-  function Plugins() {
-    useProxy(settings);
-    var navigation2 = NavigationNative.useNavigation();
-    return /* @__PURE__ */ jsx(PluginPage, {
-      useItems: () => useProxy(VdPluginManager.plugins) && Object.values(VdPluginManager.plugins),
-      resolveItem: unifyVdPlugin,
-      ListHeaderComponent: () => {
-        var unproxiedPlugins = Object.values(VdPluginManager.plugins).filter((p) => !p.id.startsWith(VD_PROXY_PREFIX) && !p.id.startsWith(BUNNY_PROXY_PREFIX));
-        if (!unproxiedPlugins.length)
-          return null;
-        return /* @__PURE__ */ jsxs(Card, {
-          style: {
-            marginVertical: 8,
-            gap: 4
-          },
-          children: [
-            /* @__PURE__ */ jsx(Text, {
-              variant: "heading-lg/bold",
-              children: "Unproxied Plugins Detected"
-            }),
-            /* @__PURE__ */ jsx(Text, {
-              variant: "text-md/medium",
-              children: "Installed plugins from unproxied sources may execute unreviewed code in this app without your knowledge."
-            }),
-            /* @__PURE__ */ jsx(import_react_native14.View, {
-              style: {
-                marginTop: 8,
-                flexDirection: "row"
-              },
-              children: /* @__PURE__ */ jsx(Button, {
-                style: {
-                  flexShrink: 1
-                },
-                size: "sm",
-                text: "Review",
-                variant: "secondary",
-                onPress: () => {
-                  navigation2.push("BUNNY_CUSTOM_PAGE", {
-                    title: "Unproxied Plugins",
-                    render: () => {
-                      return /* @__PURE__ */ jsx(FlashList, {
-                        data: unproxiedPlugins,
-                        contentContainerStyle: {
-                          padding: 8
-                        },
-                        ItemSeparatorComponent: () => /* @__PURE__ */ jsx(import_react_native14.View, {
-                          style: {
-                            height: 8
-                          }
-                        }),
-                        renderItem: ({ item: p }) => /* @__PURE__ */ jsx(Card, {
-                          children: /* @__PURE__ */ jsx(Text, {
-                            variant: "heading-md/semibold",
-                            children: p.id
-                          })
-                        })
-                      });
-                    }
-                  });
-                }
-              })
-            })
-          ]
-        });
-      },
-      installAction: {
-        label: "Install a plugin",
-        fetchFn: function() {
-          var _ref = _async_to_generator(function* (url2) {
-            if (!url2.startsWith(VD_PROXY_PREFIX) && !url2.startsWith(BUNNY_PROXY_PREFIX) && !settings.developerSettings) {
-              openAlert2("felocord-plugin-unproxied-confirmation", /* @__PURE__ */ jsx(AlertModal2, {
-                title: "Hold On!",
-                content: "You're trying to install a plugin from an unproxied external source. This means you're trusting the creator to run their code in this app without your knowledge. Are you sure you want to continue?",
-                extraContent: /* @__PURE__ */ jsx(Card, {
-                  children: /* @__PURE__ */ jsx(Text, {
-                    variant: "text-md/bold",
-                    children: url2
-                  })
-                }),
-                actions: /* @__PURE__ */ jsxs(AlertActions, {
-                  children: [
-                    /* @__PURE__ */ jsx(AlertActionButton2, {
-                      text: "Continue",
-                      variant: "primary",
-                      onPress: () => {
-                        VdPluginManager.installPlugin(url2).then(() => showToast(Strings.TOASTS_INSTALLED_PLUGIN, findAssetId("Check"))).catch((e) => openAlert2("felocord-plugin-install-failed", /* @__PURE__ */ jsx(AlertModal2, {
-                          title: "Install Failed",
-                          content: `Unable to install plugin from '${url2}':`,
-                          extraContent: /* @__PURE__ */ jsx(Card, {
-                            children: /* @__PURE__ */ jsx(Text, {
-                              variant: "text-md/normal",
-                              children: e instanceof Error ? e.message : String(e)
-                            })
-                          }),
-                          actions: /* @__PURE__ */ jsx(AlertActionButton2, {
-                            text: "Okay",
-                            variant: "primary"
-                          })
-                        })));
-                      }
-                    }),
-                    /* @__PURE__ */ jsx(AlertActionButton2, {
-                      text: "Cancel",
-                      variant: "secondary"
-                    })
-                  ]
-                })
-              }));
-            } else {
-              return yield VdPluginManager.installPlugin(url2);
-            }
-          });
-          return function(url2) {
-            return _ref.apply(this, arguments);
-          };
-        }()
-      }
-    });
-  }
-  var import_react_native14, openAlert2, AlertModal2, AlertActions, AlertActionButton2;
-  var init_Plugins = __esm({
-    "src/core/ui/settings/pages/Plugins/index.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_async_to_generator();
-      init_jsxRuntime();
-      init_i18n();
-      init_AddonPage();
-      init_PluginCard();
-      init_plugins();
+      init_themes();
       init_assets();
-      init_settings();
-      init_storage();
-      init_toasts();
+      init_loader();
+      init_patcher();
       init_constants();
       init_lazy();
-      init_metro();
       init_common();
-      init_components();
-      import_react_native14 = __toESM(require_react_native());
-      init_vendetta();
-      ({ openAlert: openAlert2 } = lazyDestructure(() => findByProps("openAlert", "dismissAlert")));
-      ({ AlertModal: AlertModal2, AlertActions, AlertActionButton: AlertActionButton2 } = lazyDestructure(() => findByProps("AlertModal", "AlertActions")));
+      init_filters();
+      init_finders();
+      init_wrappers();
+      init_toasts();
+      showSimpleActionSheet2 = findExports(byMutableProp("showSimpleActionSheet"));
+      handleClick = findByPropsLazy("handleClick");
+      ({ openURL } = lazyDestructure(() => url));
+      ({ getChannelId } = lazyDestructure(() => channels));
+      ({ getChannel } = lazyDestructure(() => findByProps("getChannel")));
+      url_default = () => {
+        var patches2 = new Array();
+        patches2.push(after("showSimpleActionSheet", showSimpleActionSheet2, (args) => {
+          if (args[0].key !== "LongPressUrl")
+            return;
+          var { header: { title: url2 }, options } = args[0];
+          var urlType = typeFromUrl(url2);
+          if (!urlType)
+            return;
+          options.push({
+            label: Strings.INSTALL_ADDON,
+            onPress: () => installWithToast(urlType, url2)
+          });
+        }));
+        patches2.push(instead("handleClick", handleClick, /* @__PURE__ */ function() {
+          var _ref = _async_to_generator(function* (args, orig) {
+            var { href: url2 } = args[0];
+            var urlType = typeFromUrl(url2);
+            if (!urlType)
+              return orig.apply(this, args);
+            if (urlType === "theme" && getChannel(getChannelId())?.parent_id !== VD_THEMES_CHANNEL_ID)
+              return orig.apply(this, args);
+            showConfirmationAlert({
+              title: Strings.HOLD_UP,
+              content: formatString("CONFIRMATION_LINK_IS_A_TYPE", {
+                urlType
+              }),
+              onConfirm: () => installWithToast(urlType, url2),
+              confirmText: Strings.INSTALL,
+              cancelText: Strings.CANCEL,
+              secondaryConfirmText: Strings.OPEN_IN_BROWSER,
+              onConfirmSecondary: () => openURL(url2)
+            });
+          });
+          return function(args, orig) {
+            return _ref.apply(this, arguments);
+          };
+        }()));
+        return () => patches2.forEach((p) => p());
+      };
     }
   });
 
-  // src/core/ui/components/AddonCard.tsx
-  function AddonCard(props) {
-    var styles3 = useStyles2();
-    return /* @__PURE__ */ jsx(Card, {
-      children: /* @__PURE__ */ jsxs(Stack, {
-        spacing: 16,
-        children: [
-          /* @__PURE__ */ jsxs(import_react_native15.View, {
-            style: {
-              flexDirection: "row",
-              alignItems: "center"
-            },
-            children: [
-              /* @__PURE__ */ jsxs(import_react_native15.View, {
-                style: styles3.headerLeading,
-                children: [
-                  /* @__PURE__ */ jsx(Text, {
-                    style: styles3.headerLabel,
-                    children: props.headerLabel
-                  }),
-                  props.headerSublabel && /* @__PURE__ */ jsx(Text, {
-                    style: styles3.headerSubtitle,
-                    children: props.headerSublabel
-                  })
-                ]
-              }),
-              /* @__PURE__ */ jsxs(import_react_native15.View, {
-                style: [
-                  styles3.headerTrailing,
-                  {
-                    marginLeft: "auto"
-                  }
-                ],
-                children: [
-                  /* @__PURE__ */ jsxs(import_react_native15.View, {
-                    style: styles3.actions,
-                    children: [
-                      props.overflowActions && /* @__PURE__ */ jsx(IconButton, {
-                        onPress: () => showSimpleActionSheet2({
-                          key: "CardOverflow",
-                          header: {
-                            title: props.overflowTitle,
-                            icon: props.headerIcon && /* @__PURE__ */ jsx(LegacyFormRow.Icon, {
-                              style: {
-                                marginRight: 8
-                              },
-                              source: findAssetId(props.headerIcon)
-                            }),
-                            onClose: () => hideActionSheet2()
-                          },
-                          options: props.overflowActions?.map((i) => ({
-                            ...i,
-                            icon: findAssetId(i.icon)
-                          }))
-                        }),
-                        size: "sm",
-                        variant: "secondary",
-                        icon: findAssetId("CircleInformationIcon-primary")
-                      }),
-                      props.actions?.map(({ icon, onPress, disabled }) => /* @__PURE__ */ jsx(IconButton, {
-                        onPress,
-                        disabled,
-                        size: "sm",
-                        variant: "secondary",
-                        icon: findAssetId(icon)
-                      }))
-                    ]
-                  }),
-                  props.toggleType && (props.toggleType === "switch" ? /* @__PURE__ */ jsx(FormSwitch, {
-                    value: props.toggleValue(),
-                    onValueChange: props.onToggleChange
-                  }) : /* @__PURE__ */ jsx(import_react_native15.TouchableOpacity, {
-                    onPress: () => {
-                      props.onToggleChange?.(!props.toggleValue());
-                    },
-                    children: /* @__PURE__ */ jsx(FormRadio, {
-                      selected: props.toggleValue()
-                    })
-                  }))
-                ]
-              })
-            ]
-          }),
-          props.descriptionLabel && /* @__PURE__ */ jsx(Text, {
-            variant: "text-md/medium",
-            children: props.descriptionLabel
-          })
-        ]
-      })
-    });
-  }
-  var import_react_native15, hideActionSheet2, showSimpleActionSheet2, useStyles2;
-  var init_AddonCard = __esm({
-    "src/core/ui/components/AddonCard.tsx"() {
+  // src/core/plugins/quickinstall/index.ts
+  var quickinstall_exports = {};
+  __export(quickinstall_exports, {
+    default: () => quickinstall_default
+  });
+  var patches, quickinstall_default;
+  var init_quickinstall = __esm({
+    "src/core/plugins/quickinstall/index.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
-      init_jsxRuntime();
-      init_assets();
-      init_lazy();
-      init_components();
-      init_wrappers();
-      init_color();
-      init_styles();
-      import_react_native15 = __toESM(require_react_native());
-      ({ hideActionSheet: hideActionSheet2 } = lazyDestructure(() => findByProps("openLazy", "hideActionSheet")));
-      ({ showSimpleActionSheet: showSimpleActionSheet2 } = lazyDestructure(() => findByProps("showSimpleActionSheet")));
-      useStyles2 = createStyles({
-        card: {
-          backgroundColor: semanticColors?.CARD_SECONDARY_BG,
-          borderRadius: 12,
-          overflow: "hidden"
+      init_plugins2();
+      init_forumPost();
+      init_url();
+      patches = [];
+      quickinstall_default = defineCorePlugin({
+        manifest: {
+          id: "felocord.quickinstall",
+          name: "QuickInstall",
+          version: "1.0.0",
+          description: "Quickly install Vendetta plugins and themes",
+          authors: [
+            {
+              name: "Vendetta Team"
+            }
+          ]
         },
-        header: {
-          padding: 0
+        start() {
+          patches = [
+            forumPost_default(),
+            url_default()
+          ];
         },
-        headerLeading: {
-          flexDirection: "column",
-          justifyContent: "center",
-          scale: 1.2
-        },
-        headerTrailing: {
-          display: "flex",
-          flexDirection: "row",
-          gap: 15,
-          alignItems: "center"
-        },
-        headerLabel: {
-          ...TextStyleSheet["heading-md/semibold"],
-          color: semanticColors.TEXT_NORMAL
-        },
-        headerSubtitle: {
-          ...TextStyleSheet["text-md/semibold"],
-          color: semanticColors.TEXT_MUTED
-        },
-        descriptionLabel: {
-          ...TextStyleSheet["text-md/semibold"],
-          color: semanticColors.TEXT_NORMAL
-        },
-        actions: {
-          flexDirection: "row-reverse",
-          alignItems: "center",
-          gap: 5
-        },
-        iconStyle: {
-          tintColor: semanticColors.LOGO_PRIMARY,
-          opacity: 0.2,
-          height: 64,
-          width: 64,
-          left: void 0,
-          right: "30%",
-          top: "-10%"
+        stop() {
+          patches.forEach((p) => p());
         }
       });
     }
   });
 
-  // src/core/ui/settings/pages/Themes/ThemeCard.tsx
-  function selectAndApply(value, theme) {
-    try {
-      selectTheme(value ? theme : null);
-      applyTheme(value ? theme : null);
-    } catch (e) {
-      console.error("Error while selectAndApply,", e);
-    }
+  // src/lib/api/react/jsx.ts
+  var jsx_exports = {};
+  __export(jsx_exports, {
+    deleteJsxCreate: () => deleteJsxCreate,
+    onJsxCreate: () => onJsxCreate,
+    patchJsx: () => patchJsx
+  });
+  function onJsxCreate(Component, callback) {
+    if (!callbacks.has(Component))
+      callbacks.set(Component, []);
+    callbacks.get(Component).push(callback);
   }
-  function ThemeCard({ item: theme }) {
-    useProxy(theme);
-    var [removed, setRemoved] = React.useState(false);
-    if (removed)
-      return null;
-    var { authors } = theme.data;
-    return /* @__PURE__ */ jsx(AddonCard, {
-      headerLabel: theme.data.name,
-      headerSublabel: authors ? `by ${authors.map((i) => i.name).join(", ")}` : "",
-      descriptionLabel: theme.data.description ?? "No description.",
-      toggleType: !settings.safeMode?.enabled ? "radio" : void 0,
-      toggleValue: () => themes[theme.id].selected,
-      onToggleChange: (v) => {
-        selectAndApply(v, theme);
-      },
-      overflowTitle: theme.data.name,
-      overflowActions: [
-        {
-          icon: "ic_sync_24px",
-          label: Strings.REFETCH,
-          onPress: () => {
-            fetchTheme(theme.id, theme.selected).then(() => {
-              showToast(Strings.THEME_REFETCH_SUCCESSFUL, findAssetId("toast_image_saved"));
-            }).catch(() => {
-              showToast(Strings.THEME_REFETCH_FAILED, findAssetId("Small"));
-            });
-          }
-        },
-        {
-          icon: "copy",
-          label: Strings.COPY_URL,
-          onPress: () => {
-            clipboard.setString(theme.id);
-            showToast.showCopyToClipboard();
-          }
-        },
-        {
-          icon: "ic_message_delete",
-          label: Strings.DELETE,
-          isDestructive: true,
-          onPress: () => showConfirmationAlert({
-            title: Strings.HOLD_UP,
-            content: formatString("ARE_YOU_SURE_TO_DELETE_THEME", {
-              name: theme.data.name
-            }),
-            confirmText: Strings.DELETE,
-            cancelText: Strings.CANCEL,
-            confirmColor: ButtonColors.RED,
-            onConfirm: () => {
-              removeTheme(theme.id).then((wasSelected) => {
-                setRemoved(true);
-                if (wasSelected)
-                  selectAndApply(false, theme);
-              }).catch((e) => {
-                showToast(e.message, findAssetId("Small"));
-              });
-            }
-          })
+  function deleteJsxCreate(Component, callback) {
+    if (!callbacks.has(Component))
+      return;
+    var cbs = callbacks.get(Component);
+    cbs.splice(cbs.indexOf(callback), 1);
+    if (cbs.length === 0)
+      callbacks.delete(Component);
+  }
+  function patchJsx() {
+    var callback = ([Component], ret) => {
+      if (typeof Component === "function" && callbacks.has(Component.name)) {
+        var cbs = callbacks.get(Component.name);
+        for (var cb of cbs) {
+          var _ret = cb(Component, ret);
+          if (_ret !== void 0)
+            ret = _ret;
         }
-      ]
-    });
+        return ret;
+      }
+    };
+    var patches2 = [
+      after("jsx", jsxRuntime2, callback),
+      after("jsxs", jsxRuntime2, callback)
+    ];
+    return () => patches2.forEach((unpatch) => unpatch());
   }
-  var init_ThemeCard = __esm({
-    "src/core/ui/settings/pages/Themes/ThemeCard.tsx"() {
+  var callbacks, jsxRuntime2;
+  var init_jsx = __esm({
+    "src/lib/api/react/jsx.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
-      init_jsxRuntime();
-      init_i18n();
-      init_AddonCard();
-      init_assets();
-      init_settings();
-      init_storage();
-      init_themes();
-      init_types();
-      init_common();
-      init_alerts();
-      init_toasts();
+      init_patcher();
+      init_metro();
+      callbacks = /* @__PURE__ */ new Map();
+      jsxRuntime2 = findByPropsLazy("jsx", "jsxs");
     }
   });
 
-  // src/core/ui/settings/pages/Themes/index.tsx
-  var Themes_exports = {};
-  __export(Themes_exports, {
-    default: () => Themes
+  // src/core/plugins/badges/index.tsx
+  var badges_exports = {};
+  __export(badges_exports, {
+    default: () => badges_default
   });
-  function Themes() {
-    useProxy(settings);
-    useProxy(themes);
-    return /* @__PURE__ */ jsx(AddonPage, {
-      title: Strings.THEMES,
-      searchKeywords: [
-        "data.name",
-        "data.description",
-        (p) => p.data.authors?.map((a) => a.name).join(", ")
-      ],
-      sortOptions: {
-        "Name (A-Z)": (a, b) => a.name.localeCompare(b.name),
-        "Name (Z-A)": (a, b) => b.name.localeCompare(a.name)
-      },
-      installAction: {
-        label: "Install a theme",
-        fetchFn: installTheme
-      },
-      items: Object.values(themes),
-      safeModeHint: {
-        message: formatString("SAFE_MODE_NOTICE_THEMES", {
-          enabled: Boolean(settings.safeMode?.currentThemeId)
-        }),
-        footer: settings.safeMode?.currentThemeId && /* @__PURE__ */ jsx(Button, {
-          size: "small",
-          text: Strings.DISABLE_THEME,
-          onPress: () => delete settings.safeMode?.currentThemeId,
-          style: {
-            marginTop: 8
-          }
-        })
-      },
-      CardComponent: ThemeCard
-    });
-  }
-  var init_Themes = __esm({
-    "src/core/ui/settings/pages/Themes/index.tsx"() {
+  var import_react5, useBadgesModule, badges_default;
+  var init_badges = __esm({
+    "src/core/plugins/badges/index.tsx"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
-      init_jsxRuntime();
-      init_i18n();
-      init_AddonPage();
-      init_ThemeCard();
-      init_settings();
-      init_storage();
-      init_themes();
-      init_components();
+      init_patcher();
+      init_jsx();
+      init_metro();
+      import_react5 = __toESM(require_react());
+      init_plugins2();
+      useBadgesModule = findByName("useBadges", false);
+      badges_default = defineCorePlugin({
+        manifest: {
+          id: "felocord.badges",
+          name: "Badges",
+          version: "1.0.0",
+          description: "Adds badges to user's profile",
+          authors: [
+            {
+              name: "pylixonly"
+            }
+          ]
+        },
+        start() {
+          var propHolder = {};
+          var badgeCache = {};
+          onJsxCreate("RenderedBadge", (_2, ret) => {
+            if (ret.props.id.match(/felocord-\d+-\d+/)) {
+              Object.assign(ret.props, propHolder[ret.props.id]);
+            }
+          });
+          after("default", useBadgesModule, ([user], r) => {
+            var [badges, setBadges] = (0, import_react5.useState)(user ? badgeCache[user.userId] ??= [] : []);
+            (0, import_react5.useEffect)(() => {
+              if (user) {
+                fetch(`https://raw.githubusercontent.com/felitendo/badges/refs/heads/main/${user.userId}.json`).then((r2) => r2.json()).then((badges2) => setBadges(badgeCache[user.userId] = badges2));
+              }
+            }, [
+              user
+            ]);
+            if (user) {
+              badges.forEach((badges2, i) => {
+                propHolder[`felocord-${user.userId}-${i}`] = {
+                  source: {
+                    uri: badges2.url
+                  },
+                  id: `felocord-${i}`,
+                  label: badges2.label
+                };
+                r.push({
+                  id: `felocord-${user.userId}-${i}`,
+                  description: badges2.label,
+                  icon: "_"
+                });
+              });
+            }
+          });
+        }
+      });
+    }
+  });
+
+  // src/core/plugins/index.ts
+  function defineCorePlugin(instance) {
+    instance[Symbol.for("felocord.core.plugin")] = true;
+    return instance;
+  }
+  var getCorePlugins;
+  var init_plugins2 = __esm({
+    "src/core/plugins/index.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      getCorePlugins = () => ({
+        "felocord.quickinstall": (init_quickinstall(), __toCommonJS(quickinstall_exports)),
+        "felocord.badges": (init_badges(), __toCommonJS(badges_exports))
+      });
     }
   });
 
@@ -6624,7 +6969,7 @@
     return _clearFolder.apply(this, arguments);
   }
   function _clearFolder() {
-    _clearFolder = _async_to_generator(function* (path, prefix = "felitendo/") {
+    _clearFolder = _async_to_generator(function* (path, { prefix = "felitendo/" } = {}) {
       if (typeof FileManager.clearFolder !== "function")
         throw new Error("'fs.clearFolder' is not supported");
       return void (yield FileManager.clearFolder("documents", `${prefix}${path}`));
@@ -6635,7 +6980,7 @@
     return _removeFile.apply(this, arguments);
   }
   function _removeFile() {
-    _removeFile = _async_to_generator(function* (path, prefix = "felitendo/") {
+    _removeFile = _async_to_generator(function* (path, { prefix = "felitendo/" } = {}) {
       if (typeof FileManager.removeFile !== "function")
         throw new Error("'fs.removeFile' is not supported");
       return void (yield FileManager.removeFile("documents", `${prefix}${path}`));
@@ -6646,7 +6991,7 @@
     return _fileExists.apply(this, arguments);
   }
   function _fileExists() {
-    _fileExists = _async_to_generator(function* (path, prefix = "felitendo/") {
+    _fileExists = _async_to_generator(function* (path, { prefix = "felitendo/" } = {}) {
       return yield FileManager.fileExists(`${FileManager.getConstants().DocumentsDirPath}/${prefix}${path}`);
     });
     return _fileExists.apply(this, arguments);
@@ -6655,7 +7000,7 @@
     return _writeFile.apply(this, arguments);
   }
   function _writeFile() {
-    _writeFile = _async_to_generator(function* (path, data, prefix = "felitendo/") {
+    _writeFile = _async_to_generator(function* (path, data, { prefix = "felitendo/" } = {}) {
       if (typeof data !== "string")
         throw new Error("Argument 'data' must be a string");
       return void (yield FileManager.writeFile("documents", `${prefix}${path}`, data, "utf8"));
@@ -6666,7 +7011,7 @@
     return _readFile.apply(this, arguments);
   }
   function _readFile() {
-    _readFile = _async_to_generator(function* (path, prefix = "felitendo/") {
+    _readFile = _async_to_generator(function* (path, { prefix = "felitendo/" } = {}) {
       try {
         return yield FileManager.readFile(`${FileManager.getConstants().DocumentsDirPath}/${prefix}${path}`, "utf8");
       } catch (err) {
@@ -6681,22 +7026,13 @@
     return _downloadFile.apply(this, arguments);
   }
   function _downloadFile() {
-    _downloadFile = _async_to_generator(function* (url2, path, prefix = "felitendo/") {
-      var blob = yield fetch(url2).then((r) => r.blob());
-      var dataURL = yield new Promise((r) => {
-        var reader = new FileReader();
-        reader.onload = () => r(reader.result);
-        reader.readAsDataURL(blob);
-      });
-      var data;
-      if (dataURL == null) {
-        throw new Error("Failed to convert blob to data URL");
-      } else {
-        var index = dataURL.indexOf("base64,");
-        if (index === -1)
-          throw new Error("dataURL does not contain base64");
-        data = dataURL.slice(index + 7);
+    _downloadFile = _async_to_generator(function* (url2, path, { prefix = "felitendo/" } = {}) {
+      var response = yield fetch(url2);
+      if (!response.ok) {
+        throw new Error(`Failed to download file from ${url2}: ${response.statusText}`);
       }
+      var arrayBuffer = yield response.arrayBuffer();
+      var data = Buffer.from(arrayBuffer).toString("base64");
       return void (yield FileManager.writeFile("documents", `${prefix}${path}`, data, "base64"));
     });
     return _downloadFile.apply(this, arguments);
@@ -6711,1210 +7047,706 @@
     }
   });
 
-  // src/lib/fonts/index.ts
-  var fonts_exports = {};
-  __export(fonts_exports, {
-    fonts: () => fonts,
-    installFont: () => installFont,
-    removeFont: () => removeFont,
-    saveFont: () => saveFont,
-    selectFont: () => selectFont,
-    updateFonts: () => updateFonts,
-    validateFont: () => validateFont
-  });
-  function writeFont(font) {
-    return _writeFont.apply(this, arguments);
-  }
-  function _writeFont() {
-    _writeFont = _async_to_generator(function* (font) {
-      if (!font && font !== null)
-        throw new Error("Arg font must be a valid object or null");
-      if (font) {
-        yield writeFile("fonts.json", JSON.stringify(font));
-      } else {
-        yield removeFile("fonts.json");
-      }
-    });
-    return _writeFont.apply(this, arguments);
-  }
-  function validateFont(font) {
-    if (!font || typeof font !== "object")
-      throw new Error("URL returned a null/non-object JSON");
-    if (typeof font.spec !== "number")
-      throw new Error("Invalid font 'spec' number");
-    if (font.spec !== 1)
-      throw new Error("Only fonts which follows spec:1 are supported");
-    var requiredFields = [
-      "name",
-      "main"
-    ];
-    if (requiredFields.some((f) => !font[f]))
-      throw new Error(`Font is missing one of the fields: ${requiredFields}`);
-    if (font.name.startsWith("__"))
-      throw new Error("Font names cannot start with __");
-    if (font.name in fonts)
-      throw new Error(`There is already a font named '${font.name}' installed`);
-  }
-  function saveFont(data) {
-    return _saveFont.apply(this, arguments);
-  }
-  function _saveFont() {
-    _saveFont = _async_to_generator(function* (data, selected = false) {
-      var fontDefJson;
-      if (typeof data === "object" && data.__source)
-        data = data.__source;
-      if (typeof data === "string") {
+  // node_modules/.pnpm/@gullerya+object-observer@6.1.3/node_modules/@gullerya/object-observer/dist/object-observer.min.js
+  var m, x, E, T, K, c, $, N, Y, I, B, D, R, z, y, g, q, H, G, J, F, P, L, C, Q, X, Z, _, b, S, V, U, W, v;
+  var init_object_observer_min = __esm({
+    "node_modules/.pnpm/@gullerya+object-observer@6.1.3/node_modules/@gullerya/object-observer/dist/object-observer.min.js"() {
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_call_super();
+      init_class_call_check();
+      init_create_class();
+      init_inherits();
+      m = "insert";
+      x = "update";
+      E = "delete";
+      T = "reverse";
+      K = "shuffle";
+      c = Symbol.for("object-observer-meta-key-0");
+      $ = {
+        async: 1
+      };
+      N = (o) => {
+        if (!o || typeof o != "object")
+          return null;
+        var t = {}, e = [];
+        for (var [r, n] of Object.entries(o))
+          if (r === "path") {
+            if (typeof n != "string" || n === "")
+              throw new Error('"path" option, if/when provided, MUST be a non-empty string');
+            t[r] = n;
+          } else if (r === "pathsOf") {
+            if (o.path)
+              throw new Error('"pathsOf" option MAY NOT be specified together with "path" option');
+            if (typeof n != "string")
+              throw new Error('"pathsOf" option, if/when provided, MUST be a string (MAY be empty)');
+            t[r] = o.pathsOf.split(".").filter(Boolean);
+          } else if (r === "pathsFrom") {
+            if (o.path || o.pathsOf)
+              throw new Error('"pathsFrom" option MAY NOT be specified together with "path"/"pathsOf" option/s');
+            if (typeof n != "string" || n === "")
+              throw new Error('"pathsFrom" option, if/when provided, MUST be a non-empty string');
+            t[r] = n;
+          } else
+            e.push(r);
+        if (e.length)
+          throw new Error(`'${e.join(", ")}' is/are not a valid observer option/s`);
+        return t;
+      };
+      Y = (o, t, e) => {
+        var r = {};
+        r[c] = t;
+        for (var n in o)
+          r[n] = g(o[n], n, t, e);
+        return r;
+      };
+      I = (o, t, e) => {
+        var r = o.length;
+        var n = new Array(r);
+        n[c] = t;
+        for (var i = 0; i < r; i++)
+          n[i] = g(o[i], i, t, e);
+        return n;
+      };
+      B = (o, t) => (o[c] = t, o);
+      D = (o, t) => {
+        if (o === null)
+          return t;
+        var e = t;
+        if (o.path) {
+          var r = o.path;
+          e = t.filter((n2) => n2.path.join(".") === r);
+        } else if (o.pathsOf) {
+          var r1 = o.pathsOf, n = r1.join(".");
+          e = t.filter((i) => (i.path.length === r1.length + 1 || i.path.length === r1.length && (i.type === T || i.type === K)) && i.path.join(".").startsWith(n));
+        } else if (o.pathsFrom) {
+          var r2 = o.pathsFrom;
+          e = t.filter((n2) => n2.path.join(".").startsWith(r2));
+        }
+        return e;
+      };
+      R = (o, t) => {
         try {
-          fontDefJson = yield (yield safeFetch(data)).json();
-          fontDefJson.__source = data;
+          o(t);
         } catch (e) {
-          throw new Error(`Failed to fetch fonts at ${data}`, {
-            cause: e
-          });
+          console.error(`failed to notify listener ${o} with ${t}`, e);
         }
-      } else {
-        fontDefJson = data;
-      }
-      validateFont(fontDefJson);
-      try {
-        yield Promise.all(Object.entries(fontDefJson.main).map(function() {
-          var _ref = _async_to_generator(function* ([font, url2]) {
-            var ext = url2.split(".").pop();
-            if (ext !== "ttf" && ext !== "otf")
-              ext = "ttf";
-            var path = `downloads/fonts/${fontDefJson.name}/${font}.${ext}`;
-            if (!(yield fileExists(path)))
-              yield downloadFile(url2, path);
-          });
-          return function(_) {
-            return _ref.apply(this, arguments);
-          };
-        }()));
-      } catch (e) {
-        throw new Error("Failed to download font assets", {
-          cause: e
-        });
-      }
-      fonts[fontDefJson.name] = fontDefJson;
-      if (selected)
-        writeFont(fonts[fontDefJson.name]);
-      return fontDefJson;
-    });
-    return _saveFont.apply(this, arguments);
-  }
-  function installFont(url2) {
-    return _installFont.apply(this, arguments);
-  }
-  function _installFont() {
-    _installFont = _async_to_generator(function* (url2, selected = false) {
-      if (typeof url2 !== "string" || Object.values(fonts).some((f) => typeof f === "object" && f.__source === url2)) {
-        throw new Error("Invalid source or font was already installed");
-      }
-      var font = yield saveFont(url2);
-      if (selected)
-        yield selectFont(font.name);
-    });
-    return _installFont.apply(this, arguments);
-  }
-  function selectFont(name) {
-    return _selectFont.apply(this, arguments);
-  }
-  function _selectFont() {
-    _selectFont = _async_to_generator(function* (name) {
-      if (name && !(name in fonts))
-        throw new Error("Selected font does not exist!");
-      if (name) {
-        fonts.__selected = name;
-      } else {
-        delete fonts.__selected;
-      }
-      yield writeFont(name == null ? null : fonts[name]);
-    });
-    return _selectFont.apply(this, arguments);
-  }
-  function removeFont(name) {
-    return _removeFont.apply(this, arguments);
-  }
-  function _removeFont() {
-    _removeFont = _async_to_generator(function* (name) {
-      var selected = fonts.__selected === name;
-      if (selected)
-        yield selectFont(null);
-      delete fonts[name];
-      try {
-        yield clearFolder(`downloads/fonts/${name}`);
-      } catch (e) {
-      }
-    });
-    return _removeFont.apply(this, arguments);
-  }
-  function updateFonts() {
-    return _updateFonts.apply(this, arguments);
-  }
-  function _updateFonts() {
-    _updateFonts = _async_to_generator(function* () {
-      yield awaitStorage(fonts);
-      yield allSettled(Object.keys(fonts).map((name) => saveFont(fonts[name], fonts.__selected === name)));
-    });
-    return _updateFonts.apply(this, arguments);
-  }
-  var fonts;
-  var init_fonts = __esm({
-    "src/lib/fonts/index.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_async_to_generator();
-      init_fs();
-      init_storage();
-      init_utils();
-      fonts = wrapSync(createStorage(createMMKVBackend("BUNNY_FONTS")));
-    }
-  });
-
-  // src/core/ui/settings/pages/Fonts/FontEditor.tsx
-  function guessFontName(urls) {
-    var fileNames = urls.map((url2) => {
-      var { pathname } = new URL(url2);
-      var fileName = pathname.replace(/\.[^/.]+$/, "");
-      return fileName.split("/").pop();
-    }).filter(Boolean);
-    var shortest = fileNames.reduce((shortest2, name) => {
-      return name.length < shortest2.length ? name : shortest2;
-    }, fileNames[0] || "");
-    return shortest?.replace(/-[A-Za-z]*$/, "") || null;
-  }
-  function RevengeFontsExtractor({ fonts: fonts2, setName }) {
-    var currentTheme2 = getCurrentTheme().data;
-    var themeFonts = currentTheme2.fonts;
-    var [fontName, setFontName] = (0, import_react3.useState)(guessFontName(Object.values(themeFonts)));
-    var [error, setError] = (0, import_react3.useState)(void 0);
-    return /* @__PURE__ */ jsxs(import_react_native16.View, {
-      style: {
-        padding: 8,
-        paddingBottom: 16,
-        gap: 12
-      },
-      children: [
-        /* @__PURE__ */ jsx(TextInput, {
-          autoFocus: true,
-          size: "md",
-          label: Strings.FONT_NAME,
-          value: fontName,
-          placeholder: fontName || "Whitney",
-          onChange: setFontName,
-          errorMessage: error,
-          state: error ? "error" : void 0
-        }),
-        /* @__PURE__ */ jsx(Text, {
-          variant: "text-xs/normal",
-          color: "text-muted",
-          children: formatString("THEME_EXTRACTOR_DESC", {
-            fonts: Object.keys(themeFonts).join(Strings.SEPARATOR)
-          })
-        }),
-        /* @__PURE__ */ jsx(Button, {
-          size: "md",
-          variant: "primary",
-          text: Strings.EXTRACT,
-          disabled: !fontName,
-          onPress: () => {
-            if (!fontName)
-              return;
-            try {
-              validateFont({
-                spec: 1,
-                name: fontName,
-                main: themeFonts
-              });
-              setName(fontName);
-              Object.assign(fonts2, themeFonts);
-              actionSheet2.hideActionSheet();
-            } catch (e) {
-              setError(String(e));
-            }
-          }
-        })
-      ]
-    });
-  }
-  function JsonFontImporter({ fonts: fonts2, setName, setSource }) {
-    var [fontLink, setFontLink] = (0, import_react3.useState)("");
-    var [saving, setSaving] = (0, import_react3.useState)(false);
-    var [error, setError] = (0, import_react3.useState)(void 0);
-    return /* @__PURE__ */ jsxs(import_react_native16.View, {
-      style: {
-        padding: 8,
-        paddingBottom: 16,
-        gap: 12
-      },
-      children: [
-        /* @__PURE__ */ jsx(TextInput, {
-          autoFocus: true,
-          size: "md",
-          label: "Font Link",
-          value: fontLink,
-          placeholder: "https://link.to/font/pack.json",
-          onChange: setFontLink,
-          errorMessage: error,
-          state: error ? "error" : void 0
-        }),
-        /* @__PURE__ */ jsx(Button, {
-          size: "md",
-          variant: "primary",
-          text: "Import",
-          disabled: !fontLink || saving,
-          loading: saving,
-          onPress: () => {
-            setSaving(true);
-            _async_to_generator(function* () {
-              var res = yield safeFetch(fontLink, {
-                cache: "no-store"
-              });
-              var json = yield res.json();
-              validateFont(json);
-              setName(json.name);
-              setSource(fontLink);
-              Object.assign(fonts2, json.main);
-            })().then(() => actionSheet2.hideActionSheet()).catch((e) => setError(String(e))).finally(() => setSaving(false));
-          }
-        })
-      ]
-    });
-  }
-  function EntryEditorActionSheet(props) {
-    var [familyName, setFamilyName] = (0, import_react3.useState)(props.name);
-    var [fontUrl, setFontUrl] = (0, import_react3.useState)(props.fontEntries[props.name]);
-    return /* @__PURE__ */ jsxs(import_react_native16.View, {
-      style: {
-        padding: 8,
-        paddingBottom: 16,
-        gap: 12
-      },
-      children: [
-        /* @__PURE__ */ jsx(TextInput, {
-          autoFocus: true,
-          size: "md",
-          label: "Family Name (to override)",
-          value: familyName,
-          placeholder: "ggsans-Bold",
-          onChange: setFamilyName
-        }),
-        /* @__PURE__ */ jsx(TextInput, {
-          size: "md",
-          label: "Font URL",
-          value: fontUrl,
-          placeholder: "https://link.to/the/font.ttf",
-          onChange: setFontUrl
-        }),
-        /* @__PURE__ */ jsx(Button, {
-          size: "md",
-          variant: "primary",
-          text: "Apply",
-          onPress: () => {
-            delete props.fontEntries[props.name];
-            props.fontEntries[familyName] = fontUrl;
-          }
-        })
-      ]
-    });
-  }
-  function promptActionSheet(Component, fontEntries, props) {
-    actionSheet2.openLazy(Promise.resolve({
-      default: () => /* @__PURE__ */ jsx(ErrorBoundary, {
-        children: /* @__PURE__ */ jsxs(ActionSheet, {
-          children: [
-            /* @__PURE__ */ jsx(BottomSheetTitleHeader, {
-              title: "Import Font"
-            }),
-            /* @__PURE__ */ jsx(Component, {
-              fonts: fontEntries,
-              ...props
-            })
-          ]
-        })
-      })
-    }), "FontEditorActionSheet");
-  }
-  function NewEntryRow({ fontEntry }) {
-    var nameRef = (0, import_react3.useRef)();
-    var urlRef = (0, import_react3.useRef)();
-    var [nameSet, setNameSet] = (0, import_react3.useState)(false);
-    var [error, setError] = (0, import_react3.useState)();
-    return /* @__PURE__ */ jsxs(import_react_native16.View, {
-      style: {
-        flexDirection: "row",
-        gap: 8,
-        justifyContent: "flex-start"
-      },
-      children: [
-        /* @__PURE__ */ jsx(import_react_native16.View, {
-          style: {
-            flex: 1
-          },
-          children: /* @__PURE__ */ jsx(TextInput, {
-            isRound: true,
-            size: "md",
-            label: nameSet ? nameRef.current : void 0,
-            placeholder: nameSet ? "https://path.to/the/file.ttf" : "PostScript name (e.g. ggsans-Bold)",
-            leadingIcon: () => nameSet ? null : /* @__PURE__ */ jsx(TableRow.Icon, {
-              source: findAssetId("PlusSmallIcon")
-            }),
-            leadingText: nameSet ? nameRef.current : "",
-            onChange: (text) => (nameSet ? urlRef : nameRef).current = text,
-            errorMessage: error,
-            state: error ? "error" : void 0
-          })
-        }),
-        nameSet && /* @__PURE__ */ jsx(IconButton, {
-          size: "md",
-          variant: "secondary",
-          onPress: () => {
-            nameRef.current = "";
-            setNameSet(false);
-          },
-          icon: findAssetId("TrashIcon")
-        }),
-        /* @__PURE__ */ jsx(IconButton, {
-          size: "md",
-          variant: "primary",
-          onPress: () => {
-            if (!nameSet && nameRef.current) {
-              setNameSet(true);
-            } else if (nameSet && nameRef.current && urlRef.current) {
-              try {
-                var parsedUrl = new URL(urlRef.current);
-                if (!parsedUrl.protocol || !parsedUrl.host) {
-                  throw "Invalid URL";
-                }
-                fontEntry[nameRef.current] = urlRef.current;
-                nameRef.current = void 0;
-                urlRef.current = void 0;
-                setNameSet(false);
-              } catch (e) {
-                setError(String(e));
-              }
-            }
-          },
-          icon: findAssetId(nameSet ? "PlusSmallIcon" : "ArrowLargeRightIcon")
-        })
-      ]
-    });
-  }
-  function FontEditor(props) {
-    var [name, setName] = (0, import_react3.useState)(props.name);
-    var [source, setSource] = (0, import_react3.useState)();
-    var [importing, setIsImporting] = (0, import_react3.useState)(false);
-    var memoEntry = (0, import_react3.useMemo)(() => {
-      return createProxy(props.name ? {
-        ...fonts[props.name].main
-      } : {}).proxy;
-    }, [
-      props.name
-    ]);
-    var fontEntries = useProxy(memoEntry);
-    var navigation2 = NavigationNative.useNavigation();
-    return /* @__PURE__ */ jsx(import_react_native16.ScrollView, {
-      style: {
-        flex: 1
-      },
-      contentContainerStyle: {
-        paddingBottom: 38
-      },
-      children: /* @__PURE__ */ jsxs(Stack, {
-        style: {
-          paddingVertical: 24,
-          paddingHorizontal: 12
-        },
-        spacing: 12,
-        children: [
-          !props.name ? /* @__PURE__ */ jsxs(TableRowGroup, {
-            title: "Import",
-            children: [
-              getCurrentTheme()?.data?.fonts && /* @__PURE__ */ jsx(TableRow, {
-                label: Strings.LABEL_EXTRACT_FONTS_FROM_THEME,
-                subLabel: Strings.DESC_EXTRACT_FONTS_FROM_THEME,
-                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                  source: findAssetId("HammerIcon")
-                }),
-                onPress: () => promptActionSheet(RevengeFontsExtractor, fontEntries, {
-                  setName
-                })
-              }),
-              /* @__PURE__ */ jsx(TableRow, {
-                label: "Import font entries from a link",
-                subLabel: "Directly import from a link with a pre-configured JSON file",
-                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                  source: findAssetId("LinkIcon")
-                }),
-                onPress: () => promptActionSheet(JsonFontImporter, fontEntries, {
-                  setName,
-                  setSource
-                })
-              })
-            ]
-          }) : /* @__PURE__ */ jsxs(TableRowGroup, {
-            title: "Actions",
-            children: [
-              /* @__PURE__ */ jsx(TableRow, {
-                label: "Refetch fonts from source",
-                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                  source: findAssetId("RetryIcon")
-                }),
-                onPress: /* @__PURE__ */ _async_to_generator(function* () {
-                  var ftCopy = {
-                    ...fonts[props.name]
-                  };
-                  yield removeFont(props.name);
-                  yield saveFont(ftCopy);
-                  navigation2.goBack();
-                })
-              }),
-              /* @__PURE__ */ jsx(TableRow, {
-                label: "Delete font pack",
-                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                  source: findAssetId("TrashIcon")
-                }),
-                onPress: () => removeFont(props.name).then(() => navigation2.goBack())
-              })
-            ]
-          }),
-          /* @__PURE__ */ jsx(TextInput, {
-            size: "lg",
-            value: name,
-            label: Strings.FONT_NAME,
-            placeholder: "Whitney",
-            onChange: setName
-          }),
-          /* @__PURE__ */ jsxs(TableRowGroup, {
-            title: "Font Entries",
-            children: [
-              Object.entries(fontEntries).map(([name2, url2]) => {
-                return /* @__PURE__ */ jsx(TableRow, {
-                  label: name2,
-                  subLabel: url2,
-                  trailing: /* @__PURE__ */ jsxs(Stack, {
-                    spacing: 2,
-                    direction: "horizontal",
-                    children: [
-                      /* @__PURE__ */ jsx(IconButton, {
-                        size: "sm",
-                        variant: "secondary",
-                        icon: findAssetId("PencilIcon"),
-                        onPress: () => promptActionSheet(EntryEditorActionSheet, fontEntries, {
-                          name: name2,
-                          fontEntries
-                        })
-                      }),
-                      /* @__PURE__ */ jsx(IconButton, {
-                        size: "sm",
-                        variant: "secondary",
-                        icon: findAssetId("TrashIcon"),
-                        onPress: () => delete fontEntries[name2]
-                      })
-                    ]
-                  })
-                });
-              }),
-              /* @__PURE__ */ jsx(TableRow, {
-                label: /* @__PURE__ */ jsx(NewEntryRow, {
-                  fontEntry: fontEntries
-                })
-              })
-            ]
-          }),
-          /* @__PURE__ */ jsx(import_react_native16.View, {
-            style: {
-              flexDirection: "row",
-              justifyContent: "flex-end",
-              bottom: 0,
-              left: 0
-            },
-            children: /* @__PURE__ */ jsx(Button, {
-              size: "lg",
-              loading: importing,
-              disabled: importing || !name || Object.keys(fontEntries).length === 0,
-              variant: "primary",
-              text: props.name ? "Save" : "Import",
-              onPress: /* @__PURE__ */ _async_to_generator(function* () {
-                if (!name)
-                  return;
-                setIsImporting(true);
-                if (!props.name) {
-                  saveFont({
-                    spec: 1,
-                    name,
-                    main: fontEntries,
-                    __source: source
-                  }).then(() => navigation2.goBack()).finally(() => setIsImporting(false));
-                } else {
-                  Object.assign(fonts[props.name], {
-                    name,
-                    main: fontEntries,
-                    __edited: true
-                  });
-                  setIsImporting(false);
-                  navigation2.goBack();
-                }
-              }),
-              icon: findAssetId(props.name ? "toast_image_saved" : "DownloadIcon"),
-              style: {
-                marginLeft: 8
-              }
-            })
-          })
-        ]
-      })
-    });
-  }
-  var import_react3, import_react_native16, actionSheet2;
-  var init_FontEditor = __esm({
-    "src/core/ui/settings/pages/Fonts/FontEditor.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_async_to_generator();
-      init_jsxRuntime();
-      init_i18n();
-      init_assets();
-      init_storage();
-      init_fonts();
-      init_themes();
-      init_utils();
-      init_common();
-      init_components();
-      init_wrappers();
-      init_components2();
-      import_react3 = __toESM(require_react());
-      import_react_native16 = __toESM(require_react_native());
-      actionSheet2 = findByPropsLazy("hideActionSheet");
-    }
-  });
-
-  // globals:@shopify/react-native-skia
-  var require_react_native_skia = __commonJS({
-    "globals:@shopify/react-native-skia"(exports, module) {
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      module.exports = require_depsModule()["@shopify/react-native-skia"];
-    }
-  });
-
-  // src/core/ui/settings/pages/Fonts/FontCard.tsx
-  function FontPreview({ font }) {
-    var TEXT_NORMAL = useToken(tokens.colors.TEXT_NORMAL);
-    var { fontFamily: fontFamilyList, fontSize } = TextStyleSheet["text-md/medium"];
-    var fontFamily = fontFamilyList.split(/,/g)[0];
-    var typeface = Skia.useFont(font.main[fontFamily])?.getTypeface();
-    var paragraph = (0, import_react4.useMemo)(() => {
-      if (!typeface)
-        return null;
-      var fMgr = SkiaApi.TypefaceFontProvider.Make();
-      fMgr.registerFont(typeface, fontFamily);
-      return SkiaApi.ParagraphBuilder.Make({}, fMgr).pushStyle({
-        color: SkiaApi.Color(TEXT_NORMAL),
-        fontFamilies: [
-          fontFamily
-        ],
-        fontSize
-      }).addText("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.").pop().build();
-    }, [
-      typeface
-    ]);
-    return (
-      // This does not work, actually :woeis:
-      /* @__PURE__ */ jsx(import_react_native17.View, {
-        style: {
-          height: 64
-        },
-        children: typeface ? /* @__PURE__ */ jsx(Skia.Canvas, {
-          style: {
-            height: 64
-          },
-          children: /* @__PURE__ */ jsx(Skia.Paragraph, {
-            paragraph,
-            x: 0,
-            y: 0,
-            width: 300
-          })
-        }) : /* @__PURE__ */ jsx(import_react_native17.View, {
-          style: {
-            justifyContent: "center",
-            alignItems: "center"
-          },
-          children: /* @__PURE__ */ jsx(Text, {
-            color: "text-muted",
-            variant: "heading-lg/semibold",
-            children: "Loading..."
-          })
-        })
-      })
-    );
-  }
-  function FontCard({ item: font }) {
-    useProxy(fonts);
-    var navigation2 = NavigationNative.useNavigation();
-    var selected = fonts.__selected === font.name;
-    return /* @__PURE__ */ jsx(Card, {
-      children: /* @__PURE__ */ jsxs(Stack, {
-        spacing: 16,
-        children: [
-          /* @__PURE__ */ jsxs(import_react_native17.View, {
-            style: {
-              flexDirection: "row",
-              alignItems: "center"
-            },
-            children: [
-              /* @__PURE__ */ jsx(import_react_native17.View, {
-                children: /* @__PURE__ */ jsx(Text, {
-                  variant: "heading-lg/semibold",
-                  children: font.name
-                })
-              }),
-              /* @__PURE__ */ jsx(import_react_native17.View, {
-                style: {
-                  marginLeft: "auto"
-                },
-                children: /* @__PURE__ */ jsxs(Stack, {
-                  spacing: 12,
-                  direction: "horizontal",
-                  children: [
-                    /* @__PURE__ */ jsx(IconButton, {
-                      onPress: () => {
-                        navigation2.push("BUNNY_CUSTOM_PAGE", {
-                          title: "Edit Font",
-                          render: () => /* @__PURE__ */ jsx(FontEditor, {
-                            name: font.name
-                          })
-                        });
-                      },
-                      size: "sm",
-                      variant: "secondary",
-                      disabled: selected,
-                      icon: findAssetId("PencilIcon")
-                    }),
-                    /* @__PURE__ */ jsx(Button, {
-                      size: "sm",
-                      variant: selected ? "secondary" : "primary",
-                      text: selected ? "Unapply" : "Apply",
-                      onPress: /* @__PURE__ */ _async_to_generator(function* () {
-                        yield selectFont(selected ? null : font.name);
-                        showConfirmationAlert({
-                          title: Strings.HOLD_UP,
-                          content: "Reload Discord to apply changes?",
-                          confirmText: Strings.RELOAD,
-                          cancelText: Strings.CANCEL,
-                          confirmColor: ButtonColors.RED,
-                          onConfirm: BundleUpdaterManager.reload
-                        });
-                      })
-                    })
-                  ]
-                })
-              })
-            ]
-          }),
-          /* @__PURE__ */ jsx(FontPreview, {
-            font
-          })
-        ]
-      })
-    });
-  }
-  var Skia, import_react4, import_react_native17, useToken;
-  var init_FontCard = __esm({
-    "src/core/ui/settings/pages/Fonts/FontCard.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_async_to_generator();
-      init_jsxRuntime();
-      init_i18n();
-      init_assets();
-      init_modules();
-      init_storage();
-      init_fonts();
-      init_lazy();
-      init_types();
-      init_metro();
-      init_common();
-      init_components();
-      Skia = __toESM(require_react_native_skia());
-      init_alerts();
-      init_styles();
-      import_react4 = __toESM(require_react());
-      import_react_native17 = __toESM(require_react_native());
-      init_FontEditor();
-      ({ useToken } = lazyDestructure(() => findByProps("useToken")));
-    }
-  });
-
-  // src/core/ui/settings/pages/Fonts/index.tsx
-  var Fonts_exports = {};
-  __export(Fonts_exports, {
-    default: () => Fonts
-  });
-  function Fonts() {
-    useProxy(settings);
-    useProxy(fonts);
-    var navigation2 = NavigationNative.useNavigation();
-    return /* @__PURE__ */ jsx(AddonPage, {
-      title: Strings.FONTS,
-      searchKeywords: [
-        "name",
-        "description"
-      ],
-      sortOptions: {
-        "Name (A-Z)": (a, b) => a.name.localeCompare(b.name),
-        "Name (Z-A)": (a, b) => b.name.localeCompare(a.name)
-      },
-      items: Object.values(fonts),
-      safeModeHint: {
-        message: Strings.SAFE_MODE_NOTICE_FONTS
-      },
-      CardComponent: FontCard,
-      installAction: {
-        label: "Install a font",
-        onPress: () => {
-          navigation2.push("BUNNY_CUSTOM_PAGE", {
-            title: "Import Font",
-            render: () => /* @__PURE__ */ jsx(FontEditor, {})
-          });
-        }
-      }
-    });
-  }
-  var init_Fonts = __esm({
-    "src/core/ui/settings/pages/Fonts/index.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_jsxRuntime();
-      init_i18n();
-      init_AddonPage();
-      init_FontEditor();
-      init_settings();
-      init_storage();
-      init_fonts();
-      init_common();
-      init_FontCard();
-    }
-  });
-
-  // src/core/ui/hooks/useFS.ts
-  function useFileExists(path, prefix) {
-    var [state, setState] = (0, import_react5.useState)(2);
-    var check = () => fileExists(path, prefix).then((exists) => setState(exists ? 1 : 0)).catch(() => setState(3));
-    var customFS = (0, import_react5.useMemo)(() => new Proxy(fs_exports, {
-      get(target, p, receiver) {
-        var val = Reflect.get(target, p, receiver);
-        if (typeof val !== "function")
-          return;
-        return (...args) => {
-          var promise = (check(), val(...args));
-          if (promise?.constructor?.name === "Promise") {
-            setState(2);
-            promise.finally(check);
-          }
-          return promise;
-        };
-      }
-    }), []);
-    (0, import_react5.useEffect)(() => void check(), []);
-    return [
-      state,
-      customFS
-    ];
-  }
-  var import_react5, CheckState;
-  var init_useFS = __esm({
-    "src/core/ui/hooks/useFS.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_fs();
-      import_react5 = __toESM(require_react());
-      (function(CheckState2) {
-        CheckState2[CheckState2["FALSE"] = 0] = "FALSE";
-        CheckState2[CheckState2["TRUE"] = 1] = "TRUE";
-        CheckState2[CheckState2["LOADING"] = 2] = "LOADING";
-        CheckState2[CheckState2["ERROR"] = 3] = "ERROR";
-      })(CheckState || (CheckState = {}));
-    }
-  });
-
-  // src/core/ui/settings/pages/Developer/AssetDisplay.tsx
-  function AssetDisplay({ asset }) {
-    return /* @__PURE__ */ jsx(LegacyFormRow, {
-      label: `${asset.name} - ${asset.id}`,
-      trailing: /* @__PURE__ */ jsx(import_react_native18.Image, {
-        source: asset.id,
-        style: {
-          width: 32,
-          height: 32
-        }
-      }),
-      onPress: () => {
-        clipboard.setString(asset.name);
-        showToast.showCopyToClipboard();
-      }
-    });
-  }
-  var import_react_native18;
-  var init_AssetDisplay = __esm({
-    "src/core/ui/settings/pages/Developer/AssetDisplay.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_jsxRuntime();
-      init_common();
-      init_components();
-      init_toasts();
-      import_react_native18 = __toESM(require_react_native());
-    }
-  });
-
-  // src/core/ui/settings/pages/Developer/AssetBrowser.tsx
-  function AssetBrowser() {
-    var [search, setSearch] = React.useState("");
-    return /* @__PURE__ */ jsx(ErrorBoundary, {
-      children: /* @__PURE__ */ jsxs(import_react_native19.View, {
-        style: {
-          flex: 1
-        },
-        children: [
-          /* @__PURE__ */ jsx(Search_default, {
-            style: {
-              margin: 10
-            },
-            onChangeText: (v) => setSearch(v)
-          }),
-          /* @__PURE__ */ jsx(import_react_native19.FlatList, {
-            data: Object.values(assetsMap).filter((a) => a.name.includes(search) || a.id.toString() === search),
-            renderItem: ({ item }) => /* @__PURE__ */ jsx(AssetDisplay, {
-              asset: item
-            }),
-            ItemSeparatorComponent: LegacyFormDivider,
-            keyExtractor: (item) => item.name
-          })
-        ]
-      })
-    });
-  }
-  var import_react_native19;
-  var init_AssetBrowser = __esm({
-    "src/core/ui/settings/pages/Developer/AssetBrowser.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_jsxRuntime();
-      init_AssetDisplay();
-      init_assets();
-      init_components();
-      init_components2();
-      import_react_native19 = __toESM(require_react_native());
-    }
-  });
-
-  // src/core/ui/settings/pages/Developer/index.tsx
-  var Developer_exports = {};
-  __export(Developer_exports, {
-    default: () => Developer
-  });
-  function Developer() {
-    var [rdtFileExists, fs] = useFileExists("preloads/reactDevtools.js");
-    var styles3 = useStyles3();
-    var navigation2 = NavigationNative.useNavigation();
-    useProxy(settings);
-    useProxy(loaderConfig);
-    return /* @__PURE__ */ jsx(ErrorBoundary, {
-      children: /* @__PURE__ */ jsx(import_react_native20.ScrollView, {
-        style: {
-          flex: 1
-        },
-        contentContainerStyle: {
-          paddingBottom: 38
-        },
-        children: /* @__PURE__ */ jsxs(Stack, {
-          style: {
-            paddingVertical: 24,
-            paddingHorizontal: 12
-          },
-          spacing: 24,
-          children: [
-            /* @__PURE__ */ jsx(TextInput, {
-              label: Strings.DEBUGGER_URL,
-              placeholder: "127.0.0.1:9090",
-              size: "md",
-              leadingIcon: () => /* @__PURE__ */ jsx(LegacyFormText, {
-                style: styles3.leadingText,
-                children: "ws://"
-              }),
-              defaultValue: settings.debuggerUrl,
-              onChange: (v) => settings.debuggerUrl = v
-            }),
-            /* @__PURE__ */ jsxs(TableRowGroup, {
-              title: Strings.DEBUG,
-              children: [
-                /* @__PURE__ */ jsx(TableRow, {
-                  label: Strings.CONNECT_TO_DEBUG_WEBSOCKET,
-                  icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                    source: findAssetId("copy")
-                  }),
-                  onPress: () => connectToDebugger(settings.debuggerUrl)
-                }),
-                isReactDevToolsPreloaded() && /* @__PURE__ */ jsx(Fragment, {
-                  children: /* @__PURE__ */ jsx(TableRow, {
-                    label: Strings.CONNECT_TO_REACT_DEVTOOLS,
-                    icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                      source: findAssetId("ic_badge_staff")
-                    }),
-                    onPress: () => window[getReactDevToolsProp() || "__vendetta_rdc"]?.connectToDevTools({
-                      host: settings.debuggerUrl.split(":")?.[0],
-                      resolveRNStyle: import_react_native20.StyleSheet.flatten
-                    })
-                  })
-                })
-              ]
-            }),
-            isLoaderConfigSupported() && /* @__PURE__ */ jsx(Fragment, {
-              children: /* @__PURE__ */ jsxs(TableRowGroup, {
-                title: "Loader config",
-                children: [
-                  /* @__PURE__ */ jsx(TableSwitchRow, {
-                    label: Strings.LOAD_FROM_CUSTOM_URL,
-                    subLabel: Strings.LOAD_FROM_CUSTOM_URL_DEC,
-                    icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                      source: findAssetId("copy")
-                    }),
-                    value: loaderConfig.customLoadUrl.enabled,
-                    onValueChange: (v) => {
-                      loaderConfig.customLoadUrl.enabled = v;
-                    }
-                  }),
-                  loaderConfig.customLoadUrl.enabled && /* @__PURE__ */ jsx(TableRow, {
-                    label: /* @__PURE__ */ jsx(TextInput, {
-                      defaultValue: loaderConfig.customLoadUrl.url,
-                      size: "md",
-                      onChange: (v) => loaderConfig.customLoadUrl.url = v,
-                      placeholder: "http://localhost:4040/vendetta.js",
-                      label: Strings.BUNNY_URL
-                    })
-                  }),
-                  isReactDevToolsPreloaded() && isVendettaLoader() && /* @__PURE__ */ jsx(TableSwitchRow, {
-                    label: Strings.LOAD_REACT_DEVTOOLS,
-                    subLabel: `${Strings.VERSION}: ${getReactDevToolsVersion()}`,
-                    icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                      source: findAssetId("ic_badge_staff")
-                    }),
-                    value: loaderConfig.loadReactDevTools,
-                    onValueChange: (v) => {
-                      loaderConfig.loadReactDevTools = v;
-                    }
-                  })
-                ]
-              })
-            }),
-            /* @__PURE__ */ jsxs(TableRowGroup, {
-              title: "Other",
-              children: [
-                /* @__PURE__ */ jsx(TableRow, {
-                  arrow: true,
-                  label: Strings.ASSET_BROWSER,
-                  icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                    source: findAssetId("ic_image")
-                  }),
-                  trailing: TableRow.Arrow,
-                  onPress: () => navigation2.push("BUNNY_CUSTOM_PAGE", {
-                    title: Strings.ASSET_BROWSER,
-                    render: AssetBrowser
-                  })
-                }),
-                /* @__PURE__ */ jsx(TableRow, {
-                  arrow: true,
-                  label: Strings.ERROR_BOUNDARY_TOOLS_LABEL,
-                  icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                    source: findAssetId("ic_warning_24px")
-                  }),
-                  onPress: () => showSimpleActionSheet3({
-                    key: "ErrorBoundaryTools",
-                    header: {
-                      title: "Which ErrorBoundary do you want to trip?",
-                      icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                        style: {
-                          marginRight: 8
-                        },
-                        source: findAssetId("ic_warning_24px")
-                      }),
-                      onClose: () => hideActionSheet3()
-                    },
-                    options: [
-                      // @ts-expect-error
-                      // Of course, to trigger an error, we need to do something incorrectly. The below will do!
-                      {
-                        label: Strings.BUNNY,
-                        onPress: () => navigation2.push("BUNNY_CUSTOM_PAGE", {
-                          render: () => /* @__PURE__ */ jsx("undefined", {})
-                        })
-                      },
-                      {
-                        label: "Discord",
-                        isDestructive: true,
-                        onPress: () => navigation2.push("BUNNY_CUSTOM_PAGE", {
-                          noErrorBoundary: true
-                        })
-                      }
-                    ]
-                  })
-                }),
-                /* @__PURE__ */ jsx(TableRow, {
-                  label: Strings.INSTALL_REACT_DEVTOOLS,
-                  subLabel: Strings.RESTART_REQUIRED_TO_TAKE_EFFECT,
-                  icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                    source: findAssetId("DownloadIcon")
-                  }),
-                  trailing: /* @__PURE__ */ jsx(Button, {
-                    size: "sm",
-                    loading: rdtFileExists === CheckState.LOADING,
-                    disabled: rdtFileExists === CheckState.LOADING,
-                    variant: rdtFileExists === CheckState.TRUE ? "secondary" : "primary",
-                    text: rdtFileExists === CheckState.TRUE ? Strings.UNINSTALL : Strings.INSTALL,
-                    onPress: /* @__PURE__ */ _async_to_generator(function* () {
-                      if (rdtFileExists === CheckState.FALSE) {
-                        fs.downloadFile(RDT_EMBED_LINK, "preloads/reactDevtools.js");
-                      } else if (rdtFileExists === CheckState.TRUE) {
-                        fs.removeFile("preloads/reactDevtools.js");
-                      }
-                    }),
-                    icon: findAssetId(rdtFileExists === CheckState.TRUE ? "ic_message_delete" : "DownloadIcon"),
-                    style: {
-                      marginLeft: 8
-                    }
-                  })
-                }),
-                /* @__PURE__ */ jsx(TableSwitchRow, {
-                  label: Strings.ENABLE_EVAL_COMMAND,
-                  subLabel: Strings.ENABLE_EVAL_COMMAND_DESC,
-                  icon: /* @__PURE__ */ jsx(TableRow.Icon, {
-                    source: findAssetId("PencilIcon")
-                  }),
-                  value: settings.enableEvalCommand,
-                  onValueChange: (v) => {
-                    settings.enableEvalCommand = v;
+      };
+      z = function z2() {
+        var t = this.batches;
+        this.batches = [];
+        for (var [e, r] of t)
+          R(e, r);
+      };
+      y = (o, t) => {
+        var e = o, r, n, i, l, h, s;
+        var u = t.length;
+        do {
+          for (r = e.options.async, n = e.observers, s = n.length; s--; )
+            if ([i, l] = n[s], h = D(l, t), h.length)
+              if (r) {
+                e.batches.length === 0 && queueMicrotask(z.bind(e));
+                var a = void 0;
+                for (var p of e.batches)
+                  if (p[0] === i) {
+                    a = p;
+                    break;
                   }
-                })
-              ]
-            })
-          ]
-        })
-      })
-    });
-  }
-  var import_react_native20, hideActionSheet3, showSimpleActionSheet3, RDT_EMBED_LINK, useStyles3;
-  var init_Developer = __esm({
-    "src/core/ui/settings/pages/Developer/index.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_async_to_generator();
-      init_jsxRuntime();
-      init_i18n();
-      init_useFS();
-      init_AssetBrowser();
-      init_assets();
-      init_debug();
-      init_loader();
-      init_settings();
-      init_storage();
-      init_lazy();
-      init_common();
-      init_components();
-      init_wrappers();
-      init_color();
-      init_components2();
-      init_styles();
-      import_react_native20 = __toESM(require_react_native());
-      ({ hideActionSheet: hideActionSheet3 } = lazyDestructure(() => findByProps("openLazy", "hideActionSheet")));
-      ({ showSimpleActionSheet: showSimpleActionSheet3 } = lazyDestructure(() => findByProps("showSimpleActionSheet")));
-      RDT_EMBED_LINK = "https://raw.githubusercontent.com/amsyarasyiq/rdt-embedder/main/dist.js";
-      useStyles3 = createStyles({
-        leadingText: {
-          ...TextStyleSheet["heading-md/semibold"],
-          color: semanticColors.TEXT_MUTED,
-          marginRight: -4
+                a || (a = [
+                  i,
+                  []
+                ], e.batches.push(a)), Array.prototype.push.apply(a[1], h);
+              } else
+                R(i, h);
+          var f = e.parent;
+          if (f) {
+            for (var a1 = 0; a1 < u; a1++) {
+              var p1 = t[a1];
+              t[a1] = new b(p1.type, [
+                e.ownKey,
+                ...p1.path
+              ], p1.value, p1.oldValue, p1.object);
+            }
+            e = f;
+          } else
+            e = null;
+        } while (e);
+      };
+      g = (o, t, e, r) => r !== void 0 && r.has(o) ? null : typeof o != "object" || o === null ? o : Array.isArray(o) ? new U({
+        target: o,
+        ownKey: t,
+        parent: e,
+        visited: r
+      }).proxy : ArrayBuffer.isView(o) ? new W({
+        target: o,
+        ownKey: t,
+        parent: e
+      }).proxy : o instanceof Date ? o : new V({
+        target: o,
+        ownKey: t,
+        parent: e,
+        visited: r
+      }).proxy;
+      q = function q2() {
+        var t = this[c], e = t.target, r = e.length - 1;
+        var n = e.pop();
+        if (n && typeof n == "object") {
+          var l = n[c];
+          l && (n = l.detach());
+        }
+        var i = [
+          new b(E, [
+            r
+          ], void 0, n, this)
+        ];
+        return y(t, i), n;
+      };
+      H = function H2() {
+        var t = this[c], e = t.target, r = arguments.length, n = new Array(r), i = e.length;
+        for (var s = 0; s < r; s++)
+          n[s] = g(arguments[s], i + s, t);
+        var l = Reflect.apply(e.push, e, n), h = [];
+        for (var s1 = i, u = e.length; s1 < u; s1++)
+          h[s1 - i] = new b(m, [
+            s1
+          ], e[s1], void 0, this);
+        return y(t, h), l;
+      };
+      G = function G2() {
+        var t = this[c], e = t.target;
+        var r, n, i, l, h;
+        for (r = e.shift(), r && typeof r == "object" && (h = r[c], h && (r = h.detach())), n = 0, i = e.length; n < i; n++)
+          l = e[n], l && typeof l == "object" && (h = l[c], h && (h.ownKey = n));
+        var s = [
+          new b(E, [
+            0
+          ], void 0, r, this)
+        ];
+        return y(t, s), r;
+      };
+      J = function J2() {
+        var t = this[c], e = t.target, r = arguments.length, n = new Array(r);
+        for (var s = 0; s < r; s++)
+          n[s] = g(arguments[s], s, t);
+        var i = Reflect.apply(e.unshift, e, n);
+        for (var s1 = 0, u = e.length, f; s1 < u; s1++)
+          if (f = e[s1], f && typeof f == "object") {
+            var a = f[c];
+            a && (a.ownKey = s1);
+          }
+        var l = n.length, h = new Array(l);
+        for (var s2 = 0; s2 < l; s2++)
+          h[s2] = new b(m, [
+            s2
+          ], e[s2], void 0, this);
+        return y(t, h), i;
+      };
+      F = function F2() {
+        var t = this[c], e = t.target;
+        var r, n, i;
+        for (e.reverse(), r = 0, n = e.length; r < n; r++)
+          if (i = e[r], i && typeof i == "object") {
+            var h = i[c];
+            h && (h.ownKey = r);
+          }
+        var l = [
+          new b(T, [], void 0, void 0, this)
+        ];
+        return y(t, l), this;
+      };
+      P = function P2(t) {
+        var e = this[c], r = e.target;
+        var n, i, l;
+        for (r.sort(t), n = 0, i = r.length; n < i; n++)
+          if (l = r[n], l && typeof l == "object") {
+            var s = l[c];
+            s && (s.ownKey = n);
+          }
+        var h = [
+          new b(K, [], void 0, void 0, this)
+        ];
+        return y(e, h), this;
+      };
+      L = function L2(t, e, r) {
+        var n = this[c], i = n.target, l = [], h = i.length, s = i.slice(0);
+        if (e = e === void 0 ? 0 : e < 0 ? Math.max(h + e, 0) : Math.min(e, h), r = r === void 0 ? h : r < 0 ? Math.max(h + r, 0) : Math.min(r, h), e < h && r > e) {
+          i.fill(t, e, r);
+          var u;
+          for (var f = e, a, p; f < r; f++)
+            a = i[f], i[f] = g(a, f, n), f in s ? (p = s[f], p && typeof p == "object" && (u = p[c], u && (p = u.detach())), l.push(new b(x, [
+              f
+            ], i[f], p, this))) : l.push(new b(m, [
+              f
+            ], i[f], void 0, this));
+          y(n, l);
+        }
+        return this;
+      };
+      C = function C2(t, e, r) {
+        var n = this[c], i = n.target, l = i.length;
+        t = t < 0 ? Math.max(l + t, 0) : t, e = e === void 0 ? 0 : e < 0 ? Math.max(l + e, 0) : Math.min(e, l), r = r === void 0 ? l : r < 0 ? Math.max(l + r, 0) : Math.min(r, l);
+        var h = Math.min(r - e, l - t);
+        if (t < l && t !== e && h > 0) {
+          var s = i.slice(0), u = [];
+          i.copyWithin(t, e, r);
+          for (var f = t, a, p, O; f < t + h; f++)
+            a = i[f], a && typeof a == "object" && (a = g(a, f, n), i[f] = a), p = s[f], p && typeof p == "object" && (O = p[c], O && (p = O.detach())), !(typeof a != "object" && a === p) && u.push(new b(x, [
+              f
+            ], a, p, this));
+          y(n, u);
+        }
+        return this;
+      };
+      Q = function Q2() {
+        var t = this[c], e = t.target, r = arguments.length, n = new Array(r), i = e.length;
+        for (var w = 0; w < r; w++)
+          n[w] = g(arguments[w], w, t);
+        var l = r === 0 ? 0 : n[0] < 0 ? i + n[0] : n[0], h = r < 2 ? i - l : n[1], s = Math.max(r - 2, 0), u = Reflect.apply(e.splice, e, n), f = e.length;
+        var a;
+        for (var w1 = 0, A; w1 < f; w1++)
+          A = e[w1], A && typeof A == "object" && (a = A[c], a && (a.ownKey = w1));
+        var p, O, j;
+        for (p = 0, O = u.length; p < O; p++)
+          j = u[p], j && typeof j == "object" && (a = j[c], a && (u[p] = a.detach()));
+        var M = [];
+        var d;
+        for (d = 0; d < h; d++)
+          d < s ? M.push(new b(x, [
+            l + d
+          ], e[l + d], u[d], this)) : M.push(new b(E, [
+            l + d
+          ], void 0, u[d], this));
+        for (; d < s; d++)
+          M.push(new b(m, [
+            l + d
+          ], e[l + d], void 0, this));
+        return y(t, M), u;
+      };
+      X = function X2(t, e) {
+        var r = this[c], n = r.target, i = t.length, l = n.slice(0);
+        e = e || 0, n.set(t, e);
+        var h = new Array(i);
+        for (var s = e; s < i + e; s++)
+          h[s - e] = new b(x, [
+            s
+          ], n[s], l[s], this);
+        y(r, h);
+      };
+      Z = {
+        pop: q,
+        push: H,
+        shift: G,
+        unshift: J,
+        reverse: F,
+        sort: P,
+        fill: L,
+        copyWithin: C,
+        splice: Q
+      };
+      _ = {
+        reverse: F,
+        sort: P,
+        fill: L,
+        copyWithin: C,
+        set: X
+      };
+      b = function b2(t, e, r, n, i) {
+        "use strict";
+        _class_call_check(this, b2);
+        this.type = t, this.path = e, this.value = r, this.oldValue = n, this.object = i;
+      };
+      S = /* @__PURE__ */ function() {
+        "use strict";
+        function S2(t, e) {
+          _class_call_check(this, S2);
+          var { target: r, parent: n, ownKey: i, visited: l = /* @__PURE__ */ new Set() } = t;
+          n && i !== void 0 ? (this.parent = n, this.ownKey = i) : (this.parent = null, this.ownKey = null), l.add(r);
+          var h = e(r, this, l);
+          l.delete(r), this.observers = [], this.revocable = Proxy.revocable(h, this), this.proxy = this.revocable.proxy, this.target = h, this.options = this.processOptions(t.options), this.options.async && (this.batches = []);
+        }
+        _create_class(S2, [
+          {
+            key: "processOptions",
+            value: function processOptions(t) {
+              if (t) {
+                if (typeof t != "object")
+                  throw new Error(`Observable options if/when provided, MAY only be an object, got '${t}'`);
+                var e = Object.keys(t).filter((r) => !(r in $));
+                if (e.length)
+                  throw new Error(`'${e.join(", ")}' is/are not a valid Observable option/s`);
+                return Object.assign({}, t);
+              } else
+                return {};
+            }
+          },
+          {
+            key: "detach",
+            value: function detach() {
+              return this.parent = null, this.target;
+            }
+          },
+          {
+            key: "set",
+            value: function set(t, e, r) {
+              var n = t[e];
+              if (r !== n) {
+                var i = g(r, e, this);
+                if (t[e] = i, n && typeof n == "object") {
+                  var h = n[c];
+                  h && (n = h.detach());
+                }
+                var l = n === void 0 ? [
+                  new b(m, [
+                    e
+                  ], i, void 0, this.proxy)
+                ] : [
+                  new b(x, [
+                    e
+                  ], i, n, this.proxy)
+                ];
+                y(this, l);
+              }
+              return true;
+            }
+          },
+          {
+            key: "deleteProperty",
+            value: function deleteProperty(t, e) {
+              var r = t[e];
+              if (delete t[e], r && typeof r == "object") {
+                var i = r[c];
+                i && (r = i.detach());
+              }
+              var n = [
+                new b(E, [
+                  e
+                ], void 0, r, this.proxy)
+              ];
+              return y(this, n), true;
+            }
+          }
+        ]);
+        return S2;
+      }();
+      V = /* @__PURE__ */ function(S2) {
+        "use strict";
+        _inherits(V2, S2);
+        function V2(t) {
+          _class_call_check(this, V2);
+          return _call_super(this, V2, [
+            t,
+            Y
+          ]);
+        }
+        return V2;
+      }(S);
+      U = /* @__PURE__ */ function(S2) {
+        "use strict";
+        _inherits(U2, S2);
+        function U2(t) {
+          _class_call_check(this, U2);
+          return _call_super(this, U2, [
+            t,
+            I
+          ]);
+        }
+        _create_class(U2, [
+          {
+            key: "get",
+            value: function get(t, e) {
+              return Z[e] || t[e];
+            }
+          }
+        ]);
+        return U2;
+      }(S);
+      W = /* @__PURE__ */ function(S2) {
+        "use strict";
+        _inherits(W2, S2);
+        function W2(t) {
+          _class_call_check(this, W2);
+          return _call_super(this, W2, [
+            t,
+            B
+          ]);
+        }
+        _create_class(W2, [
+          {
+            key: "get",
+            value: function get(t, e) {
+              return _[e] || t[e];
+            }
+          }
+        ]);
+        return W2;
+      }(S);
+      v = Object.freeze({
+        from: (o, t) => {
+          if (!o || typeof o != "object")
+            throw new Error("observable MAY ONLY be created from a non-null object");
+          if (o[c])
+            return o;
+          if (Array.isArray(o))
+            return new U({
+              target: o,
+              ownKey: null,
+              parent: null,
+              options: t
+            }).proxy;
+          if (ArrayBuffer.isView(o))
+            return new W({
+              target: o,
+              ownKey: null,
+              parent: null,
+              options: t
+            }).proxy;
+          if (o instanceof Date)
+            throw new Error(`${o} found to be one of a non-observable types`);
+          return new V({
+            target: o,
+            ownKey: null,
+            parent: null,
+            options: t
+          }).proxy;
+        },
+        isObservable: (o) => !!(o && o[c]),
+        observe: (o, t, e) => {
+          if (!v.isObservable(o))
+            throw new Error("invalid observable parameter");
+          if (typeof t != "function")
+            throw new Error(`observer MUST be a function, got '${t}'`);
+          var r = o[c].observers;
+          r.some((n) => n[0] === t) ? console.warn("observer may be bound to an observable only once; will NOT rebind") : r.push([
+            t,
+            N(e)
+          ]);
+        },
+        unobserve: (o, ...t) => {
+          if (!v.isObservable(o))
+            throw new Error("invalid observable parameter");
+          var e = o[c].observers;
+          var r = e.length;
+          if (r) {
+            if (!t.length) {
+              e.splice(0);
+              return;
+            }
+            for (; r; )
+              t.indexOf(e[--r][0]) >= 0 && e.splice(r, 1);
+          }
         }
       });
     }
   });
 
-  // src/core/ui/settings/index.ts
-  function initSettings() {
-    registerSection({
-      name: "Felocord",
-      items: [
-        {
-          key: "BUNNY",
-          title: () => Strings.BUNNY,
-          icon: {
-            uri: felitendo_default
-          },
-          render: () => Promise.resolve().then(() => (init_General(), General_exports)),
-          rawTabsConfig: {
-            useTrailing: () => `(${"10885c3-main"})`
-          }
-        },
-        {
-          key: "BUNNY_PLUGINS",
-          title: () => Strings.PLUGINS,
-          icon: findAssetId("ActivitiesIcon"),
-          render: () => Promise.resolve().then(() => (init_Plugins(), Plugins_exports))
-        },
-        {
-          key: "BUNNY_THEMES",
-          title: () => Strings.THEMES,
-          icon: findAssetId("PaintPaletteIcon"),
-          render: () => Promise.resolve().then(() => (init_Themes(), Themes_exports)),
-          usePredicate: () => isThemeSupported()
-        },
-        {
-          key: "BUNNY_FONTS",
-          title: () => Strings.FONTS,
-          icon: findAssetId("ic_add_text"),
-          render: () => Promise.resolve().then(() => (init_Fonts(), Fonts_exports)),
-          usePredicate: () => isFontSupported()
-        },
-        {
-          key: "BUNNY_DEVELOPER",
-          title: () => Strings.DEVELOPER,
-          icon: findAssetId("WrenchIcon"),
-          render: () => Promise.resolve().then(() => (init_Developer(), Developer_exports)),
-          usePredicate: () => useProxy(settings).developerSettings ?? false
+  // src/lib/api/storage/index.ts
+  var storage_exports = {};
+  __export(storage_exports, {
+    awaitStorage: () => awaitStorage2,
+    createStorage: () => createStorage2,
+    createStorageAndCallback: () => createStorageAndCallback,
+    createStorageAsync: () => createStorageAsync,
+    getPreloadedStorage: () => getPreloadedStorage,
+    preloadStorageIfExists: () => preloadStorageIfExists,
+    purgeStorage: () => purgeStorage2,
+    updateStorage: () => updateStorage,
+    useObservable: () => useObservable
+  });
+  function createFileBackend2(filePath) {
+    var write = debounce((data) => {
+      writeFile(filePath, JSON.stringify(data));
+    }, 500);
+    return {
+      get: /* @__PURE__ */ _async_to_generator(function* () {
+        try {
+          return JSON.parse(yield readFile(filePath));
+        } catch (e) {
+          throw new Error(`Failed to parse storage from '${filePath}'`, {
+            cause: e
+          });
         }
-      ]
-    });
-    registerSection({
-      name: "Vendetta",
-      items: []
-    });
+      }),
+      set: /* @__PURE__ */ function() {
+        var _ref = _async_to_generator(function* (data) {
+          if (!data || typeof data !== "object") {
+            throw new Error("data needs to be an object");
+          }
+          write(data);
+        });
+        return function(data) {
+          return _ref.apply(this, arguments);
+        };
+      }(),
+      exists: /* @__PURE__ */ _async_to_generator(function* () {
+        return yield fileExists(filePath);
+      })
+    };
   }
-  var init_settings3 = __esm({
-    "src/core/ui/settings/index.ts"() {
+  function useObservable(observables, opts) {
+    if (observables.some((o) => o?.[storageInitErrorSymbol]))
+      throw new Error("An error occured while initializing the storage");
+    if (observables.some((o) => !v.isObservable(o))) {
+      throw new Error("Argument passed isn't an Observable");
+    }
+    var [, forceUpdate] = React.useReducer((n) => ~n, 0);
+    React.useEffect(() => {
+      var listener = () => forceUpdate();
+      observables.forEach((o) => v.observe(o, listener, opts));
+      return () => {
+        observables.forEach((o) => v.unobserve(o, listener));
+      };
+    }, []);
+  }
+  function updateStorage(path, value) {
+    return _updateStorage.apply(this, arguments);
+  }
+  function _updateStorage() {
+    _updateStorage = _async_to_generator(function* (path, value) {
+      _loadedStorage[path] = value;
+      createFileBackend2(path).set(value);
+    });
+    return _updateStorage.apply(this, arguments);
+  }
+  function createStorageAndCallback(path, cb, { dflt = {}, nullIfEmpty = false } = {}) {
+    var emitter;
+    var callback = (data) => {
+      var proxy = new Proxy(v.from(data), {
+        get(target, prop, receiver) {
+          if (prop === Symbol.for("vendetta.storage.emitter")) {
+            if (emitter)
+              return emitter;
+            emitter = new Emitter();
+            v.observe(target, (changes) => {
+              for (var change of changes) {
+                emitter.emit(change.type !== "delete" ? "SET" : "DEL", {
+                  path: change.path,
+                  value: change.value
+                });
+              }
+            });
+            return emitter;
+          }
+          return Reflect.get(target, prop, receiver);
+        }
+      });
+      var handler = () => backend.set(proxy);
+      v.observe(proxy, handler);
+      cb(proxy);
+    };
+    var backend = createFileBackend2(path);
+    if (_loadedStorage[path]) {
+      callback(_loadedStorage[path]);
+    } else {
+      backend.exists().then(/* @__PURE__ */ function() {
+        var _ref = _async_to_generator(function* (exists) {
+          if (!exists) {
+            if (nullIfEmpty) {
+              callback(_loadedStorage[path] = null);
+            } else {
+              _loadedStorage[path] = dflt;
+              yield backend.set(dflt);
+              callback(dflt);
+            }
+          } else {
+            callback(_loadedStorage[path] = yield backend.get());
+          }
+        });
+        return function(exists) {
+          return _ref.apply(this, arguments);
+        };
+      }());
+    }
+  }
+  function createStorageAsync(path) {
+    return _createStorageAsync.apply(this, arguments);
+  }
+  function _createStorageAsync() {
+    _createStorageAsync = _async_to_generator(function* (path, opts = {}) {
+      return new Promise((r) => createStorageAndCallback(path, r, opts));
+    });
+    return _createStorageAsync.apply(this, arguments);
+  }
+  function preloadStorageIfExists(path) {
+    return _preloadStorageIfExists.apply(this, arguments);
+  }
+  function _preloadStorageIfExists() {
+    _preloadStorageIfExists = _async_to_generator(function* (path) {
+      if (_loadedStorage[path])
+        return true;
+      var backend = createFileBackend2(path);
+      if (yield backend.exists()) {
+        _loadedStorage[path] = yield backend.get();
+        return false;
+      }
+      return true;
+    });
+    return _preloadStorageIfExists.apply(this, arguments);
+  }
+  function purgeStorage2(path) {
+    return _purgeStorage.apply(this, arguments);
+  }
+  function _purgeStorage() {
+    _purgeStorage = _async_to_generator(function* (path) {
+      yield removeFile(path);
+      delete _loadedStorage[path];
+    });
+    return _purgeStorage.apply(this, arguments);
+  }
+  function awaitStorage2(...proxies) {
+    return Promise.all(proxies.map((proxy) => proxy[storagePromiseSymbol]));
+  }
+  function getPreloadedStorage(path) {
+    return _loadedStorage[path];
+  }
+  var storageInitErrorSymbol, storagePromiseSymbol, _loadedStorage, createStorage2;
+  var init_storage2 = __esm({
+    "src/lib/api/storage/index.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
-      init_felitendo();
-      init_i18n();
-      init_assets();
-      init_loader();
-      init_settings();
-      init_storage();
-      init_settings2();
+      init_async_to_generator();
+      init_Emitter();
+      init_object_observer_min();
+      init_fs();
+      init_dist();
+      storageInitErrorSymbol = Symbol.for("felocord.storage.initError");
+      storagePromiseSymbol = Symbol.for("felocord.storage.promise");
+      _loadedStorage = {};
+      createStorage2 = (path, opts = {}) => {
+        var promise = new Promise((r) => resolvePromise = r);
+        var awaited, resolved, error, resolvePromise;
+        createStorageAndCallback(path, (proxy) => {
+          awaited = proxy;
+          resolved = true;
+          resolvePromise();
+        }, opts);
+        var check = () => {
+          if (resolved)
+            return true;
+          throw new Error(`Attempted to access storage without initializing: ${path}`);
+        };
+        return new Proxy({}, {
+          ...Object.fromEntries(Object.getOwnPropertyNames(Reflect).map((k) => [
+            k,
+            (t, ...a) => {
+              return check() && Reflect[k](awaited, ...a);
+            }
+          ])),
+          get(target, prop, recv) {
+            if (prop === storageInitErrorSymbol)
+              return error;
+            if (prop === storagePromiseSymbol)
+              return promise;
+            return check() && Reflect.get(awaited ?? target, prop, recv);
+          }
+        });
+      };
     }
   });
 
   // src/lib/api/commands/types.ts
   var ApplicationCommandInputType, ApplicationCommandOptionType, ApplicationCommandType;
-  var init_types2 = __esm({
+  var init_types = __esm({
     "src/lib/api/commands/types.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
@@ -7963,7 +7795,7 @@
       init_promiseAllSettled();
       init_async_to_generator();
       init_i18n();
-      init_types2();
+      init_types();
       init_settings();
       init_common();
       init_wrappers();
@@ -8016,7 +7848,7 @@
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_i18n();
-      init_types2();
+      init_types();
       init_debug();
       init_common();
       debug_default = () => ({
@@ -8058,14 +7890,14 @@
     default: () => plugins_default
   });
   var plugins_default;
-  var init_plugins2 = __esm({
+  var init_plugins3 = __esm({
     "src/core/commands/plugins.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_i18n();
       init_plugins();
-      init_types2();
+      init_types();
       init_common();
       plugins_default = () => ({
         name: "plugins",
@@ -8080,7 +7912,7 @@
         ],
         execute([ephemeral], ctx) {
           var plugins2 = Object.values(VdPluginManager.plugins).filter(Boolean);
-          plugins2.sort((a, b) => a.manifest.name.localeCompare(b.manifest.name));
+          plugins2.sort((a, b3) => a.manifest.name.localeCompare(b3.manifest.name));
           var enabled2 = plugins2.filter((p) => p.enabled).map((p) => p.manifest.name);
           var disabled = plugins2.filter((p) => !p.enabled).map((p) => p.manifest.name);
           var content = [
@@ -8116,13 +7948,13 @@
     var unpatch = after("getBuiltInCommands", commands, ([type], res) => {
       return [
         ...res,
-        ...commands2.filter((c) => (type instanceof Array ? type.includes(c.type) : type === c.type) && c.__felocord?.shouldHide?.() !== false)
+        ...commands2.filter((c2) => (type instanceof Array ? type.includes(c2.type) : type === c2.type) && c2.__felocord?.shouldHide?.() !== false)
       ];
     });
     [
       (init_eval(), __toCommonJS(eval_exports)),
       (init_debug2(), __toCommonJS(debug_exports2)),
-      (init_plugins2(), __toCommonJS(plugins_exports))
+      (init_plugins3(), __toCommonJS(plugins_exports))
     ].forEach((r) => registerCommand(r.default()));
     return () => {
       commands2 = [];
@@ -8136,7 +7968,7 @@
     } catch (e) {
       builtInCommands = commands.getBuiltInCommands(Object.values(ApplicationCommandType), true, false);
     }
-    builtInCommands.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+    builtInCommands.sort((a, b3) => parseInt(b3.id) - parseInt(a.id));
     var lastCommand = builtInCommands[builtInCommands.length - 1];
     command.id = (parseInt(lastCommand.id, 10) - 1).toString();
     command.__felocord = {
@@ -8172,254 +8004,11 @@
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
-      init_types2();
+      init_types();
       init_patcher();
       init_logger();
       init_common();
       commands2 = [];
-    }
-  });
-
-  // globals:lodash
-  var require_lodash = __commonJS({
-    "globals:lodash"(exports, module) {
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      module.exports = require_depsModule()["lodash"];
-    }
-  });
-
-  // globals:util
-  var require_util = __commonJS({
-    "globals:util"(exports, module) {
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      module.exports = require_depsModule()["util"];
-    }
-  });
-
-  // src/core/vendetta/api.tsx
-  var import_react6, import_react_native21, initVendettaObject;
-  var init_api = __esm({
-    "src/core/vendetta/api.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_jsxRuntime();
-      init_assets();
-      init_commands();
-      init_debug();
-      init_loader();
-      init_patcher();
-      init_settings();
-      init_storage();
-      init_storage();
-      init_themes();
-      init_utils();
-      init_cyrb64();
-      init_logger();
-      init_metro();
-      init_common();
-      init_components();
-      init_components();
-      init_alerts();
-      init_color();
-      init_components2();
-      init_styles();
-      init_toasts();
-      init_dist();
-      import_react6 = __toESM(require_react());
-      import_react_native21 = __toESM(require_react_native());
-      init_plugins();
-      initVendettaObject = () => {
-        var createStackBasedFilter = (fn) => {
-          return (filter) => {
-            return fn(factories_exports.createSimpleFilter(filter, cyrb64Hash(new Error().stack)));
-          };
-        };
-        var api = window.vendetta = {
-          patcher: {
-            before: patcher_default.before,
-            after: patcher_default.after,
-            instead: patcher_default.instead
-          },
-          metro: {
-            modules: window.modules,
-            find: createStackBasedFilter(findExports),
-            findAll: createStackBasedFilter(findAllExports),
-            findByProps: (...props) => {
-              if (props.length === 1 && props[0] === "KeyboardAwareScrollView") {
-                props.push("listenToKeyboardEvents");
-              }
-              var ret = findByProps(...props);
-              if (ret == null) {
-                if (props.includes("ActionSheetTitleHeader")) {
-                  var module = findByProps("ActionSheetRow");
-                  return {
-                    ...module,
-                    ActionSheetTitleHeader: module.BottomSheetTitleHeader,
-                    ActionSheetContentContainer: ({ children }) => {
-                      (0, import_react6.useEffect)(() => console.warn("Discord has removed 'ActionSheetContentContainer', please move into something else. This has been temporarily replaced with View"), []);
-                      return /* @__PURE__ */ (0, import_react6.createElement)(import_react_native21.View, null, children);
-                    }
-                  };
-                }
-              }
-              return ret;
-            },
-            findByPropsAll: (...props) => findByPropsAll(...props),
-            findByName: (name, defaultExp) => {
-              if (name === "create" && typeof defaultExp === "undefined") {
-                return findByName("create", false).default;
-              }
-              return findByName(name, defaultExp ?? true);
-            },
-            findByNameAll: (name, defaultExp = true) => findByNameAll(name, defaultExp),
-            findByDisplayName: (displayName, defaultExp = true) => findByDisplayName(displayName, defaultExp),
-            findByDisplayNameAll: (displayName, defaultExp = true) => findByDisplayNameAll(displayName, defaultExp),
-            findByTypeName: (typeName, defaultExp = true) => findByTypeName(typeName, defaultExp),
-            findByTypeNameAll: (typeName, defaultExp = true) => findByTypeNameAll(typeName, defaultExp),
-            findByStoreName: (name) => findByStoreName(name),
-            common: {
-              constants,
-              channels,
-              i18n,
-              url,
-              toasts,
-              stylesheet: {
-                createThemedStyleSheet
-              },
-              clipboard,
-              assets,
-              invites,
-              commands,
-              navigation,
-              navigationStack,
-              NavigationNative,
-              Flux,
-              FluxDispatcher,
-              React: React2,
-              ReactNative,
-              moment: require_moment(),
-              chroma: require_chroma_js(),
-              lodash: require_lodash(),
-              util: require_util()
-            }
-          },
-          constants: {
-            DISCORD_SERVER: "https://discord.gg/n9QQ4XhhJP",
-            GITHUB: "https://github.com/vendetta-mod",
-            PROXY_PREFIX: "https://vd-plugins.github.io/proxy",
-            HTTP_REGEX: /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)$/,
-            HTTP_REGEX_MULTI: /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&//=]*)/g,
-            DISCORD_SERVER_ID: "1015931589865246730",
-            PLUGINS_CHANNEL_ID: "1091880384561684561",
-            THEMES_CHANNEL_ID: "1091880434939482202"
-          },
-          utils: {
-            findInReactTree: (tree, filter) => findInReactTree(tree, filter),
-            findInTree: (tree, filter, options) => findInTree(tree, filter, options),
-            safeFetch: (input, options, timeout) => safeFetch(input, options, timeout),
-            unfreeze: (obj) => Object.isFrozen(obj) ? {
-              ...obj
-            } : obj,
-            without: (object, ...keys) => omit(object, keys)
-          },
-          debug: {
-            connectToDebugger: (url2) => connectToDebugger(url2),
-            getDebugInfo: () => getDebugInfo()
-          },
-          ui: {
-            components: {
-              Forms,
-              General: ReactNative,
-              Alert: LegacyAlert,
-              Button: CompatButton,
-              HelpMessage: (...props) => /* @__PURE__ */ jsx(HelpMessage, {
-                ...props
-              }),
-              SafeAreaView: (...props) => /* @__PURE__ */ jsx(SafeAreaView, {
-                ...props
-              }),
-              Summary,
-              ErrorBoundary,
-              Codeblock,
-              Search: Search_default
-            },
-            toasts: {
-              showToast: (content, asset) => showToast(content, asset)
-            },
-            alerts: {
-              showConfirmationAlert: (options) => showConfirmationAlert(options),
-              showCustomAlert: (component, props) => showCustomAlert(component, props),
-              showInputAlert: (options) => showInputAlert(options)
-            },
-            assets: {
-              all: assetsMap,
-              find: (filter) => findAsset(filter),
-              getAssetByName: (name) => findAsset(name),
-              getAssetByID: (id) => findAsset(id),
-              getAssetIDByName: (name) => findAssetId(name)
-            },
-            semanticColors,
-            rawColors
-          },
-          plugins: {
-            plugins: VdPluginManager.plugins,
-            fetchPlugin: (source) => VdPluginManager.fetchPlugin(source),
-            installPlugin: (source, enabled2 = true) => VdPluginManager.installPlugin(source, enabled2),
-            startPlugin: (id) => VdPluginManager.startPlugin(id),
-            stopPlugin: (id, disable = true) => VdPluginManager.stopPlugin(id, disable),
-            removePlugin: (id) => VdPluginManager.removePlugin(id),
-            getSettings: (id) => VdPluginManager.getSettings(id)
-          },
-          themes: {
-            themes,
-            fetchTheme: (id, selected) => fetchTheme(id, selected),
-            installTheme: (id) => installTheme(id),
-            selectTheme: (id) => selectTheme(id === "default" ? null : themes[id]),
-            removeTheme: (id) => removeTheme(id),
-            getCurrentTheme: () => getThemeFromLoader(),
-            updateThemes: () => updateThemes()
-          },
-          commands: {
-            registerCommand
-          },
-          storage: {
-            createProxy: (target) => createProxy(target),
-            useProxy: (_storage) => useProxy(_storage),
-            createStorage: (backend) => createStorage(backend),
-            wrapSync: (store) => wrapSync(store),
-            awaitSyncWrapper: (store) => awaitStorage(store),
-            createMMKVBackend: (store) => createMMKVBackend(store),
-            createFileBackend: (file) => {
-              if (isPyonLoader() && file === "vendetta_theme.json") {
-                file = "felitendo/current-theme.json";
-              }
-              return createFileBackend(file);
-            }
-          },
-          settings,
-          loader: {
-            identity: getVendettaLoaderIdentity() ?? void 0,
-            config: loaderConfig
-          },
-          logger: {
-            log: (...message) => console.log(...message),
-            info: (...message) => console.info(...message),
-            warn: (...message) => console.warn(...message),
-            error: (...message) => console.error(...message),
-            time: (...message) => console.time(...message),
-            trace: (...message) => console.trace(...message),
-            verbose: (...message) => console.log(...message)
-          },
-          version: versionHash,
-          unload: () => {
-            delete window.vendetta;
-          }
-        };
-        return () => api.unload();
-      };
     }
   });
 
@@ -8446,7 +8035,7 @@
       return blockedSym in payload;
     };
     (dispatcher._interceptors ??= []).unshift(cb);
-    return () => dispatcher._interceptors &&= dispatcher._interceptors.filter((v) => v !== cb);
+    return () => dispatcher._interceptors &&= dispatcher._interceptors.filter((v2) => v2 !== cb);
   }
   function intercept(cb) {
     intercepts.push(cb);
@@ -8468,472 +8057,10 @@
     }
   });
 
-  // src/core/plugins/quickinstall/forumPost.tsx
-  function useExtractThreadContent(thread, _firstMessage = null, actionSheet3 = false) {
-    if (thread.guild_id !== DISCORD_SERVER_ID)
-      return;
-    var postType;
-    if (thread.parent_id === PLUGINS_CHANNEL_ID) {
-      postType = "Plugin";
-    } else if (thread.parent_id === THEMES_CHANNEL_ID && isThemeSupported()) {
-      postType = "Theme";
-    } else
-      return;
-    var { firstMessage } = actionSheet3 ? useFirstForumPostMessage(thread) : {
-      firstMessage: _firstMessage
-    };
-    var urls = firstMessage?.content?.match(HTTP_REGEX_MULTI)?.filter(postMap[postType].urlsFilter);
-    if (!urls || !urls[0])
-      return;
-    if (postType === "Plugin" && !urls[0].endsWith("/"))
-      urls[0] += "/";
-    return [
-      postType,
-      urls[0]
-    ];
-  }
-  function useInstaller(thread, firstMessage = null, actionSheet3 = false) {
-    var [postType, url2] = useExtractThreadContent(thread, firstMessage, actionSheet3) ?? [];
-    useProxy(VdPluginManager.plugins);
-    useProxy(themes);
-    var [isInstalling, setIsInstalling] = React.useState(false);
-    if (!postType || !url2)
-      return [
-        true
-      ];
-    var isInstalled = Boolean(postMap[postType].storage[url2]);
-    var installOrRemove = function() {
-      var _ref = _async_to_generator(function* () {
-        setIsInstalling(true);
-        try {
-          yield postMap[postType].installOrRemove(url2);
-        } catch (e) {
-          showToast(e.message, findAssetId("Small"));
-        } finally {
-          setIsInstalling(false);
-        }
-      });
-      return function installOrRemove2() {
-        return _ref.apply(this, arguments);
-      };
-    }();
-    return [
-      false,
-      postType,
-      isInstalled,
-      isInstalling,
-      installOrRemove
-    ];
-  }
-  var useFirstForumPostMessage, forumReactions, postMap, installButtonPatch, forumPost_default;
-  var init_forumPost = __esm({
-    "src/core/plugins/quickinstall/forumPost.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_async_to_generator();
-      init_jsxRuntime();
-      init_i18n();
-      init_plugins();
-      init_assets();
-      init_loader();
-      init_patcher();
-      init_storage();
-      init_themes();
-      init_constants();
-      init_lazy();
-      init_components();
-      init_wrappers();
-      init_components2();
-      init_toasts();
-      ({ useFirstForumPostMessage } = lazyDestructure(() => findByProps("useFirstForumPostMessage")));
-      forumReactions = findByPropsLazy("MostCommonForumPostReaction");
-      postMap = {
-        Plugin: {
-          storage: VdPluginManager.plugins,
-          urlsFilter: (url2) => url2.startsWith(VD_PROXY_PREFIX),
-          installOrRemove: (url2) => {
-            var isInstalled = postMap.Plugin.storage[url2];
-            return isInstalled ? VdPluginManager.removePlugin(url2) : VdPluginManager.installPlugin(url2);
-          }
-        },
-        Theme: {
-          storage: themes,
-          urlsFilter: (url2) => url2.endsWith(".json"),
-          installOrRemove: (url2) => {
-            var isInstalled = postMap.Theme.storage[url2];
-            return isInstalled ? removeTheme(url2) : installTheme(url2);
-          }
-        }
-      };
-      installButtonPatch = () => after("MostCommonForumPostReaction", forumReactions, ([{ thread, firstMessage }], res) => {
-        var [shouldReturn, _, installed, loading, installOrRemove] = useInstaller(thread, firstMessage, true);
-        if (shouldReturn)
-          return;
-        return /* @__PURE__ */ jsxs(Fragment, {
-          children: [
-            res,
-            /* @__PURE__ */ jsx(ErrorBoundary, {
-              children: /* @__PURE__ */ jsx(Button, {
-                size: "sm",
-                loading,
-                disabled: loading,
-                // variant={installed ? "destructive" : "primary"} crashes older version because "destructive" was renamed from "danger" and there's no sane way for compat check horror
-                variant: installed ? "secondary" : "primary",
-                text: installed ? Strings.UNINSTALL : Strings.INSTALL,
-                onPress: installOrRemove,
-                icon: findAssetId(installed ? "ic_message_delete" : "DownloadIcon"),
-                style: {
-                  marginLeft: 8
-                }
-              })
-            })
-          ]
-        });
-      });
-      forumPost_default = () => {
-        var patches2 = [
-          // actionSheetPatch(),
-          installButtonPatch()
-        ];
-        return () => patches2.map((p) => p());
-      };
-    }
-  });
-
-  // src/core/plugins/quickinstall/url.tsx
-  function typeFromUrl(url2) {
-    if (url2.startsWith(VD_PROXY_PREFIX)) {
-      return "plugin";
-    } else if (url2.endsWith(".json") && isThemeSupported()) {
-      return "theme";
-    }
-  }
-  function installWithToast(type, url2) {
-    (type === "plugin" ? VdPluginManager.installPlugin.bind(VdPluginManager) : installTheme)(url2).then(() => {
-      showToast(Strings.SUCCESSFULLY_INSTALLED, findAssetId("Check"));
-    }).catch((e) => {
-      showToast(e.message, findAssetId("Small"));
-    });
-  }
-  var showSimpleActionSheet4, handleClick, openURL, getChannelId, getChannel, url_default;
-  var init_url = __esm({
-    "src/core/plugins/quickinstall/url.tsx"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_async_to_generator();
-      init_i18n();
-      init_plugins();
-      init_assets();
-      init_loader();
-      init_patcher();
-      init_themes();
-      init_constants();
-      init_lazy();
-      init_common();
-      init_filters();
-      init_finders();
-      init_wrappers();
-      init_alerts();
-      init_toasts();
-      showSimpleActionSheet4 = findExports(byMutableProp("showSimpleActionSheet"));
-      handleClick = findByPropsLazy("handleClick");
-      ({ openURL } = lazyDestructure(() => url));
-      ({ getChannelId } = lazyDestructure(() => channels));
-      ({ getChannel } = lazyDestructure(() => findByProps("getChannel")));
-      url_default = () => {
-        var patches2 = new Array();
-        patches2.push(after("showSimpleActionSheet", showSimpleActionSheet4, (args) => {
-          if (args[0].key !== "LongPressUrl")
-            return;
-          var { header: { title: url2 }, options } = args[0];
-          var urlType = typeFromUrl(url2);
-          if (!urlType)
-            return;
-          options.push({
-            label: Strings.INSTALL_ADDON,
-            onPress: () => installWithToast(urlType, url2)
-          });
-        }));
-        patches2.push(instead("handleClick", handleClick, function() {
-          var _ref = _async_to_generator(function* (args, orig) {
-            var { href: url2 } = args[0];
-            var urlType = typeFromUrl(url2);
-            if (!urlType)
-              return orig.apply(this, args);
-            if (urlType === "theme" && getChannel(getChannelId())?.parent_id !== THEMES_CHANNEL_ID)
-              return orig.apply(this, args);
-            showConfirmationAlert({
-              title: Strings.HOLD_UP,
-              content: formatString("CONFIRMATION_LINK_IS_A_TYPE", {
-                urlType
-              }),
-              onConfirm: () => installWithToast(urlType, url2),
-              confirmText: Strings.INSTALL,
-              cancelText: Strings.CANCEL,
-              secondaryConfirmText: Strings.OPEN_IN_BROWSER,
-              onConfirmSecondary: () => openURL(url2)
-            });
-          });
-          return function(args, orig) {
-            return _ref.apply(this, arguments);
-          };
-        }()));
-        return () => patches2.forEach((p) => p());
-      };
-    }
-  });
-
-  // src/core/plugins/quickinstall/index.ts
-  var quickinstall_exports = {};
-  __export(quickinstall_exports, {
-    default: () => quickinstall_default
-  });
-  var patches, quickinstall_default;
-  var init_quickinstall = __esm({
-    "src/core/plugins/quickinstall/index.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_plugins3();
-      init_forumPost();
-      init_url();
-      patches = [];
-      quickinstall_default = defineCorePlugin({
-        manifest: {
-          id: "felocord.quickinstall",
-          name: "QuickInstall",
-          version: "1.0.0",
-          description: "Quickly install Vendetta plugins and themes",
-          authors: [
-            "felitendo"
-          ]
-        },
-        start() {
-          patches = [
-            forumPost_default(),
-            url_default()
-          ];
-        },
-        stop() {
-          patches.forEach((p) => p());
-        }
-      });
-    }
-  });
-
-  // src/core/plugins/index.ts
-  function defineCorePlugin(instance) {
-    instance[Symbol.for("felocord.core.plugin")] = true;
-    return instance;
-  }
-  var getCorePlugins;
-  var init_plugins3 = __esm({
-    "src/core/plugins/index.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      getCorePlugins = () => ({
-        "felocord.quickinstall": (init_quickinstall(), __toCommonJS(quickinstall_exports))
-      });
-    }
-  });
-
-  // src/lib/api/storage/new.ts
-  function createFileBackend2(filePath) {
-    return {
-      get: /* @__PURE__ */ _async_to_generator(function* () {
-        try {
-          return JSON.parse(yield readFile(filePath));
-        } catch (e) {
-          throw new Error(`Failed to parse storage from '${filePath}'`, {
-            cause: e
-          });
-        }
-      }),
-      set: function() {
-        var _ref = _async_to_generator(function* (data) {
-          if (!data || typeof data !== "object")
-            throw new Error("data needs to be an object");
-          yield writeFile(filePath, JSON.stringify(data));
-        });
-        return function(data) {
-          return _ref.apply(this, arguments);
-        };
-      }(),
-      exists: /* @__PURE__ */ _async_to_generator(function* () {
-        return yield fileExists(filePath);
-      })
-    };
-  }
-  function _createProxy(target, path, emitter) {
-    var objChildrens = /* @__PURE__ */ new WeakMap();
-    return new Proxy(target, {
-      get(target2, prop) {
-        if (prop === emitterSymbol2)
-          return emitter;
-        var newPath = [
-          ...path,
-          prop
-        ];
-        var value = target2[prop];
-        if (value && typeof value === "object") {
-          var origValue = value;
-          value = objChildrens.get(origValue);
-          if (!value) {
-            value = _createProxy(origValue, newPath, emitter);
-            objChildrens.set(origValue, value);
-          }
-        }
-        if (value != null) {
-          emitter.emit("GET", {
-            path: newPath,
-            value
-          });
-        }
-        return value;
-      },
-      set(target2, prop, value) {
-        target2[prop] = value;
-        emitter.emit("SET", {
-          path: [
-            ...path,
-            prop
-          ],
-          value
-        });
-        return true;
-      },
-      deleteProperty(target2, prop) {
-        var success = delete target2[prop];
-        if (success)
-          emitter.emit("DEL", {
-            path: [
-              ...path,
-              prop
-            ]
-          });
-        return success;
-      }
-    });
-  }
-  function createProxy2(target = {}) {
-    var emitter = new Emitter();
-    return {
-      proxy: _createProxy(target, [], emitter),
-      emitter
-    };
-  }
-  function updateStorageAsync(path, value) {
-    return _updateStorageAsync.apply(this, arguments);
-  }
-  function _updateStorageAsync() {
-    _updateStorageAsync = _async_to_generator(function* (path, value) {
-      _loadedPath[path] = value;
-      yield createFileBackend2(path).set(value);
-    });
-    return _updateStorageAsync.apply(this, arguments);
-  }
-  function createStorageAndCallback(path, dflt = {}, cb) {
-    var callback = (data) => {
-      var { proxy, emitter } = createProxy2(data);
-      var handler = () => backend.set(proxy);
-      emitter.on("SET", handler);
-      emitter.on("DEL", handler);
-      cb(proxy);
-    };
-    var backend = createFileBackend2(path);
-    if (_loadedPath[path])
-      callback(_loadedPath[path]);
-    else {
-      backend.exists().then(function() {
-        var _ref = _async_to_generator(function* (exists) {
-          if (!exists) {
-            yield backend.set(dflt);
-            callback(dflt);
-          } else {
-            callback(yield backend.get());
-          }
-        });
-        return function(exists) {
-          return _ref.apply(this, arguments);
-        };
-      }());
-    }
-  }
-  function preloadStorageIfExists(path) {
-    return _preloadStorageIfExists.apply(this, arguments);
-  }
-  function _preloadStorageIfExists() {
-    _preloadStorageIfExists = _async_to_generator(function* (path) {
-      if (_loadedPath[path])
-        return _loadedPath[path];
-      var backend = createFileBackend2(path);
-      if (yield backend.exists()) {
-        return _loadedPath[path] = yield backend.get();
-      }
-      console.log("no " + path);
-    });
-    return _preloadStorageIfExists.apply(this, arguments);
-  }
-  function getPreloadedStorage(path) {
-    return _loadedPath[path];
-  }
-  function awaitStorage2(...proxies) {
-    return Promise.all(proxies.map((proxy) => proxy[storagePromiseSymbol]));
-  }
-  var emitterSymbol2, storageInitErrorSymbol, storagePromiseSymbol, _loadedPath, createStorage2;
-  var init_new = __esm({
-    "src/lib/api/storage/new.ts"() {
-      "use strict";
-      init_asyncIteratorSymbol();
-      init_promiseAllSettled();
-      init_async_to_generator();
-      init_fs();
-      init_Emitter();
-      emitterSymbol2 = Symbol.for("felocord.storage.emitter");
-      storageInitErrorSymbol = Symbol.for("felocord.storage.initError");
-      storagePromiseSymbol = Symbol.for("felocord.storage.promise");
-      _loadedPath = {};
-      createStorage2 = (path, dflt = {}) => {
-        var promise = new Promise((r) => resolvePromise = r);
-        var awaited, resolved, error, resolvePromise;
-        createStorageAndCallback(path, dflt, (proxy) => {
-          awaited = proxy;
-          resolved = true;
-          resolvePromise();
-        });
-        var check = () => {
-          if (resolved)
-            return true;
-          throw new Error("Attempted to access storage without initializing");
-        };
-        return new Proxy({}, {
-          ...Object.fromEntries(Object.getOwnPropertyNames(Reflect).map((k) => [
-            k,
-            (t, ...a) => {
-              return check() && Reflect[k](awaited, ...a);
-            }
-          ])),
-          get(target, prop, recv) {
-            if (prop === storageInitErrorSymbol)
-              return error;
-            if (prop === storagePromiseSymbol)
-              return promise;
-            return check() && Reflect.get(awaited ?? target, prop, recv);
-          }
-        });
-      };
-    }
-  });
-
   // src/lib/api/native/index.ts
   var native_exports = {};
   __export(native_exports, {
-    fs: () => fs_exports,
-    loader: () => loader_exports,
-    modules: () => modules_exports
+    fs: () => fs_exports
   });
   var init_native = __esm({
     "src/lib/api/native/index.ts"() {
@@ -8941,8 +8068,20 @@
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_fs();
-      init_loader();
-      init_modules();
+    }
+  });
+
+  // src/lib/api/react/index.ts
+  var react_exports = {};
+  __export(react_exports, {
+    jsx: () => jsx_exports
+  });
+  var init_react = __esm({
+    "src/lib/api/react/index.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsx();
     }
   });
 
@@ -8955,10 +8094,11 @@
     flux: () => flux_exports,
     native: () => native_exports,
     patcher: () => patcher_exports,
+    react: () => react_exports,
     settings: () => settings_exports,
     storage: () => storage_exports
   });
-  var init_api2 = __esm({
+  var init_api = __esm({
     "src/lib/api/index.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
@@ -8969,12 +8109,13 @@
       init_flux();
       init_native();
       init_patcher();
+      init_react();
       init_settings();
-      init_storage();
+      init_storage2();
     }
   });
 
-  // src/lib/plugins/api.ts
+  // src/lib/addons/plugins/api.ts
   function shimDisposableFn(unpatches, f) {
     return (...props) => {
       var up = f(...props);
@@ -9014,24 +8155,23 @@
       disposers
     };
   }
-  var init_api3 = __esm({
-    "src/lib/plugins/api.ts"() {
+  var init_api2 = __esm({
+    "src/lib/addons/plugins/api.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
-      init_api2();
+      init_api();
       init_commands();
-      init_new();
+      init_storage2();
       init_logger();
       init_plugins4();
     }
   });
 
-  // src/lib/plugins/index.ts
+  // src/lib/addons/plugins/index.ts
   var plugins_exports2 = {};
   __export(plugins_exports2, {
     apiObjects: () => apiObjects,
-    checkAndRegisterUpdates: () => checkAndRegisterUpdates,
     corePluginInstances: () => corePluginInstances,
     deleteRepository: () => deleteRepository,
     disablePlugin: () => disablePlugin,
@@ -9040,6 +8180,7 @@
     getPluginSettingsComponent: () => getPluginSettingsComponent,
     initPlugins: () => initPlugins,
     installPlugin: () => installPlugin,
+    isCorePlugin: () => isCorePlugin,
     isPluginEnabled: () => isPluginEnabled,
     isPluginInstalled: () => isPluginInstalled,
     pluginInstances: () => pluginInstances,
@@ -9051,6 +8192,7 @@
     stopPlugin: () => stopPlugin,
     uninstallPlugin: () => uninstallPlugin,
     updateAndWritePlugin: () => updateAndWritePlugin,
+    updatePlugins: () => updatePlugins,
     updateRepository: () => updateRepository
   });
   function assert(condition, id, attempt) {
@@ -9067,6 +8209,9 @@
   }
   function isExternalPlugin(manifest) {
     return "parentRepository" in manifest;
+  }
+  function isCorePlugin(id) {
+    return corePluginInstances.has(id);
   }
   function getId(manifest) {
     var id = manifestToId.get(manifest);
@@ -9099,7 +8244,7 @@
         var js = yield fetchJS(repoUrl, `plugins/${id}/index.js`);
         yield writeFile(manifest.jsPath, js);
       }
-      yield updateStorageAsync(`plugins/manifests/${id}.json`, manifest);
+      yield updateStorage(`plugins/manifests/${id}.json`, manifest);
       if (registeredPlugins.has(id)) {
         var existingManifest = registeredPlugins.get(id);
         return Object.assign(existingManifest, manifest);
@@ -9149,7 +8294,7 @@
             delete storedRepo[plugin];
           }
       }
-      yield Promise.all(Object.keys(repo).map(function() {
+      yield Promise.all(Object.keys(repo).map(/* @__PURE__ */ function() {
         var _ref = _async_to_generator(function* (pluginId) {
           if (!storedRepo || !storedRepo[pluginId] || repo[pluginId].alwaysFetch || newerThan(repo[pluginId].version, storedRepo[pluginId].version)) {
             updated = true;
@@ -9312,11 +8457,34 @@
     obj?.disposers.forEach((d) => d());
     pluginInstances.delete(id);
   }
-  function checkAndRegisterUpdates() {
-    return _checkAndRegisterUpdates.apply(this, arguments);
+  function updateAllRepository() {
+    return _updateAllRepository.apply(this, arguments);
   }
-  function _checkAndRegisterUpdates() {
-    _checkAndRegisterUpdates = _async_to_generator(function* () {
+  function _updateAllRepository() {
+    _updateAllRepository = _async_to_generator(function* () {
+      try {
+        yield updateRepository(OFFICIAL_PLUGINS_REPO_URL);
+      } catch (error) {
+        console.error("Failed to update official plugins repository", error);
+      }
+      yield allSettled(Object.keys(pluginRepositories).map(/* @__PURE__ */ function() {
+        var _ref = _async_to_generator(function* (repo) {
+          if (repo !== OFFICIAL_PLUGINS_REPO_URL) {
+            yield updateRepository(repo);
+          }
+        });
+        return function(repo) {
+          return _ref.apply(this, arguments);
+        };
+      }()));
+    });
+    return _updateAllRepository.apply(this, arguments);
+  }
+  function updatePlugins() {
+    return _updatePlugins.apply(this, arguments);
+  }
+  function _updatePlugins() {
+    _updatePlugins = _async_to_generator(function* () {
       yield awaitStorage2(pluginRepositories, pluginSettings);
       var corePlugins = getCorePlugins();
       for (var id in corePlugins) {
@@ -9328,8 +8496,9 @@
         manifestToId.set(instance.manifest, id);
         corePluginInstances.set(id, instance);
       }
+      yield updateAllRepository();
     });
-    return _checkAndRegisterUpdates.apply(this, arguments);
+    return _updatePlugins.apply(this, arguments);
   }
   function initPlugins() {
     return _initPlugins.apply(this, arguments);
@@ -9339,7 +8508,7 @@
       yield awaitStorage2(pluginRepositories, pluginSettings);
       yield allSettled([
         ...registeredPlugins.keys()
-      ].map(function() {
+      ].map(/* @__PURE__ */ function() {
         var _ref = _async_to_generator(function* (id) {
           if (isPluginEnabled(id)) {
             yield startPlugin(id);
@@ -9354,18 +8523,18 @@
   }
   var corePluginInstances, registeredPlugins, pluginInstances, apiObjects, pluginRepositories, pluginSettings, manifestToId, _fetch, fetchJS, fetchJSON;
   var init_plugins4 = __esm({
-    "src/lib/plugins/index.ts"() {
+    "src/lib/addons/plugins/index.ts"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_async_to_generator();
-      init_plugins3();
+      init_plugins2();
       init_fs();
-      init_new();
+      init_storage2();
       init_utils();
       init_constants();
       init_common();
-      init_api3();
+      init_api2();
       corePluginInstances = /* @__PURE__ */ new Map();
       registeredPlugins = /* @__PURE__ */ new Map();
       pluginInstances = /* @__PURE__ */ new Map();
@@ -9381,202 +8550,2289 @@
     }
   });
 
-  // src/lib/ui/safeMode.tsx
-  function getErrorBoundaryContext() {
-    var ctxt = findByNameLazy("ErrorBoundary")[_lazyContextSymbol];
-    return new Promise((resolve) => {
-      ctxt.getExports((exp) => {
-        resolve(exp.prototype);
-      });
+  // src/core/ui/settings/pages/Plugins/sheets/PluginInfoActionSheet.tsx
+  var PluginInfoActionSheet_exports = {};
+  __export(PluginInfoActionSheet_exports, {
+    default: () => PluginInfoActionSheet
+  });
+  function PluginInfoActionSheet({ plugin, navigation: navigation2 }) {
+    plugin.usePluginState();
+    return /* @__PURE__ */ jsx(ActionSheet, {
+      children: /* @__PURE__ */ jsxs(import_react_native17.ScrollView, {
+        contentContainerStyle: {
+          gap: 8,
+          marginBottom: 12
+        },
+        children: [
+          /* @__PURE__ */ jsxs(import_react_native17.View, {
+            style: {
+              flexDirection: "row",
+              alignItems: "center",
+              paddingVertical: 24
+            },
+            children: [
+              /* @__PURE__ */ jsxs(import_react_native17.View, {
+                style: {
+                  gap: 4
+                },
+                children: [
+                  /* @__PURE__ */ jsx(Text, {
+                    variant: "heading-xl/semibold",
+                    children: plugin.name
+                  }),
+                  /* @__PURE__ */ jsx(Text, {
+                    variant: "text-md/medium",
+                    color: "text-muted",
+                    children: plugin.description
+                  })
+                ]
+              }),
+              /* @__PURE__ */ jsx(import_react_native17.View, {
+                style: {
+                  marginLeft: "auto"
+                },
+                children: plugin.getPluginSettingsComponent() && /* @__PURE__ */ jsx(Button, {
+                  size: "md",
+                  text: "Configure",
+                  variant: "secondary",
+                  icon: findAssetId("WrenchIcon"),
+                  onPress: () => {
+                    hideSheet("PluginInfoActionSheet");
+                    navigation2.push("BUNNY_CUSTOM_PAGE", {
+                      title: plugin.name,
+                      render: plugin.getPluginSettingsComponent()
+                    });
+                  }
+                })
+              })
+            ]
+          }),
+          /* @__PURE__ */ jsx(import_react_native17.View, {
+            style: {
+              flexDirection: "row",
+              justifyContent: "center",
+              alignContent: "center"
+            },
+            children: /* @__PURE__ */ jsx(Text, {
+              variant: "text-lg/medium",
+              children: "Oops, you shouldn't see this!"
+            })
+          })
+        ]
+      })
     });
   }
-  var import_react_native22, ErrorBoundary2, BadgableTabBar, styles2, tabs, safeMode_default;
-  var init_safeMode = __esm({
-    "src/lib/ui/safeMode.tsx"() {
+  var import_react_native17;
+  var init_PluginInfoActionSheet = __esm({
+    "src/core/ui/settings/pages/Plugins/sheets/PluginInfoActionSheet.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_assets();
+      init_sheets();
+      init_components();
+      import_react_native17 = __toESM(require_react_native());
+    }
+  });
+
+  // src/core/ui/settings/pages/Plugins/models/felocord.ts
+  function unifyFelocordPlugin(manifest) {
+    return {
+      id: manifest.id,
+      name: manifest.name,
+      description: manifest.description,
+      authors: manifest.authors,
+      isEnabled: () => isPluginEnabled(getId(manifest)),
+      isInstalled: () => manifest.id in pluginSettings,
+      usePluginState() {
+        useObservable([
+          pluginSettings
+        ]);
+      },
+      toggle(start) {
+        start ? enablePlugin(getId(manifest), true) : disablePlugin(getId(manifest));
+      },
+      resolveSheetComponent() {
+        return Promise.resolve().then(() => (init_PluginInfoActionSheet(), PluginInfoActionSheet_exports));
+      },
+      getPluginSettingsComponent() {
+        return getPluginSettingsComponent(getId(manifest));
+      }
+    };
+  }
+  var init_felocord = __esm({
+    "src/core/ui/settings/pages/Plugins/models/felocord.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_plugins4();
+      init_storage2();
+    }
+  });
+
+  // src/core/ui/settings/pages/Plugins/sheets/VdPluginInfoActionSheet.tsx
+  var VdPluginInfoActionSheet_exports = {};
+  __export(VdPluginInfoActionSheet_exports, {
+    default: () => PluginInfoActionSheet2
+  });
+  function PluginInfoActionSheet2({ plugin, navigation: navigation2 }) {
+    plugin.usePluginState();
+    var vdPlugin = VdPluginManager.plugins[plugin.id];
+    var SettingsComponent = plugin.getPluginSettingsComponent();
+    return /* @__PURE__ */ jsx(ActionSheet, {
+      children: /* @__PURE__ */ jsxs(import_react_native18.ScrollView, {
+        children: [
+          /* @__PURE__ */ jsxs(import_react_native18.View, {
+            style: {
+              flexDirection: "row",
+              alignItems: "center",
+              paddingVertical: 24
+            },
+            children: [
+              /* @__PURE__ */ jsx(Text, {
+                variant: "heading-xl/semibold",
+                children: plugin.name
+              }),
+              /* @__PURE__ */ jsx(import_react_native18.View, {
+                style: {
+                  marginLeft: "auto"
+                },
+                children: SettingsComponent && /* @__PURE__ */ jsx(Button, {
+                  size: "md",
+                  text: "Configure",
+                  variant: "secondary",
+                  icon: findAssetId("WrenchIcon"),
+                  onPress: () => {
+                    hideSheet("PluginInfoActionSheet");
+                    navigation2.push("BUNNY_CUSTOM_PAGE", {
+                      title: plugin.name,
+                      render: SettingsComponent
+                    });
+                  }
+                })
+              })
+            ]
+          }),
+          /* @__PURE__ */ jsxs(ActionSheetRow.Group, {
+            children: [
+              /* @__PURE__ */ jsx(ActionSheetRow, {
+                label: Strings.REFETCH,
+                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                  source: findAssetId("RetryIcon")
+                }),
+                onPress: /* @__PURE__ */ _async_to_generator(function* () {
+                  if (vdPlugin.enabled)
+                    VdPluginManager.stopPlugin(plugin.id, false);
+                  try {
+                    yield VdPluginManager.fetchPlugin(plugin.id);
+                    showToast(Strings.PLUGIN_REFETCH_SUCCESSFUL, findAssetId("toast_image_saved"));
+                  } catch (e) {
+                    showToast(Strings.PLUGIN_REFETCH_FAILED, findAssetId("Small"));
+                  }
+                  if (vdPlugin.enabled)
+                    yield VdPluginManager.startPlugin(plugin.id);
+                  hideSheet("PluginInfoActionSheet");
+                })
+              }),
+              /* @__PURE__ */ jsx(ActionSheetRow, {
+                label: Strings.COPY_URL,
+                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                  source: findAssetId("copy")
+                }),
+                onPress: () => {
+                  clipboard.setString(plugin.id);
+                  showToast.showCopyToClipboard();
+                }
+              }),
+              /* @__PURE__ */ jsx(ActionSheetRow, {
+                label: vdPlugin.update ? Strings.DISABLE_UPDATES : Strings.ENABLE_UPDATES,
+                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                  source: findAssetId("ic_download_24px")
+                }),
+                onPress: () => {
+                  vdPlugin.update = !vdPlugin.update;
+                  showToast(formatString("TOASTS_PLUGIN_UPDATE", {
+                    update: vdPlugin.update,
+                    name: plugin.name
+                  }), findAssetId("toast_image_saved"));
+                }
+              }),
+              /* @__PURE__ */ jsx(ActionSheetRow, {
+                label: Strings.CLEAR_DATA,
+                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                  source: findAssetId("ic_duplicate")
+                }),
+                onPress: () => showConfirmationAlert({
+                  title: Strings.HOLD_UP,
+                  content: formatString("ARE_YOU_SURE_TO_CLEAR_DATA", {
+                    name: plugin.name
+                  }),
+                  confirmText: Strings.CLEAR,
+                  cancelText: Strings.CANCEL,
+                  confirmColor: "red",
+                  onConfirm: /* @__PURE__ */ _async_to_generator(function* () {
+                    if (vdPlugin.enabled)
+                      VdPluginManager.stopPlugin(plugin.id, false);
+                    try {
+                      yield VdPluginManager.fetchPlugin(plugin.id);
+                      showToast(Strings.PLUGIN_REFETCH_SUCCESSFUL, findAssetId("toast_image_saved"));
+                    } catch (e) {
+                      showToast(Strings.PLUGIN_REFETCH_FAILED, findAssetId("Small"));
+                    }
+                    var message;
+                    try {
+                      purgeStorage(plugin.id);
+                      message = [
+                        "CLEAR_DATA_SUCCESSFUL",
+                        "trash"
+                      ];
+                    } catch (e) {
+                      message = [
+                        "CLEAR_DATA_FAILED",
+                        "Small"
+                      ];
+                    }
+                    showToast(formatString(message[0], {
+                      name: plugin.name
+                    }), findAssetId(message[1]));
+                    if (vdPlugin.enabled)
+                      yield VdPluginManager.startPlugin(plugin.id);
+                    hideSheet("PluginInfoActionSheet");
+                  })
+                })
+              }),
+              /* @__PURE__ */ jsx(ActionSheetRow, {
+                label: Strings.DELETE,
+                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                  source: findAssetId("ic_message_delete")
+                }),
+                onPress: () => showConfirmationAlert({
+                  title: Strings.HOLD_UP,
+                  content: formatString("ARE_YOU_SURE_TO_DELETE_PLUGIN", {
+                    name: plugin.name
+                  }),
+                  confirmText: Strings.DELETE,
+                  cancelText: Strings.CANCEL,
+                  confirmColor: "red",
+                  onConfirm: () => {
+                    try {
+                      VdPluginManager.removePlugin(plugin.id);
+                    } catch (e) {
+                      showToast(String(e), findAssetId("Small"));
+                    }
+                    hideSheet("PluginInfoActionSheet");
+                  }
+                })
+              })
+            ]
+          })
+        ]
+      })
+    });
+  }
+  var import_react_native18;
+  var init_VdPluginInfoActionSheet = __esm({
+    "src/core/ui/settings/pages/Plugins/sheets/VdPluginInfoActionSheet.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_async_to_generator();
+      init_jsxRuntime();
+      init_i18n();
+      init_alerts();
+      init_plugins();
+      init_storage();
+      init_assets();
+      init_common();
+      init_components();
+      init_sheets();
+      init_toasts();
+      import_react_native18 = __toESM(require_react_native());
+    }
+  });
+
+  // src/core/ui/settings/pages/Plugins/models/vendetta.ts
+  function unifyVdPlugin(vdPlugin) {
+    return {
+      id: vdPlugin.id,
+      name: vdPlugin.manifest.name,
+      description: vdPlugin.manifest.description,
+      authors: vdPlugin.manifest.authors,
+      icon: vdPlugin.manifest.vendetta?.icon,
+      isEnabled: () => vdPlugin.enabled,
+      isInstalled: () => Boolean(vdPlugin && VdPluginManager.plugins[vdPlugin.id]),
+      usePluginState() {
+        useProxy(VdPluginManager.plugins[vdPlugin.id]);
+      },
+      toggle(start) {
+        start ? VdPluginManager.startPlugin(vdPlugin.id) : VdPluginManager.stopPlugin(vdPlugin.id);
+      },
+      resolveSheetComponent() {
+        return Promise.resolve().then(() => (init_VdPluginInfoActionSheet(), VdPluginInfoActionSheet_exports));
+      },
+      getPluginSettingsComponent() {
+        return VdPluginManager.getSettings(vdPlugin.id);
+      }
+    };
+  }
+  var init_vendetta = __esm({
+    "src/core/ui/settings/pages/Plugins/models/vendetta.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_plugins();
+      init_storage();
+    }
+  });
+
+  // src/core/ui/settings/pages/Plugins/index.tsx
+  var Plugins_exports = {};
+  __export(Plugins_exports, {
+    default: () => Plugins
+  });
+  function PluginPage(props) {
+    var items = props.useItems();
+    return /* @__PURE__ */ jsx(AddonPage, {
+      CardComponent: PluginCard,
+      title: Strings.PLUGINS,
+      searchKeywords: [
+        "name",
+        "description",
+        (p) => p.authors?.map((a) => typeof a === "string" ? a : a.name).join()
+      ],
+      sortOptions: {
+        "Name (A-Z)": (a, b3) => a.name.localeCompare(b3.name),
+        "Name (Z-A)": (a, b3) => b3.name.localeCompare(a.name)
+      },
+      safeModeHint: {
+        message: Strings.SAFE_MODE_NOTICE_PLUGINS
+      },
+      items,
+      ...props
+    });
+  }
+  function Plugins() {
+    useProxy(settings);
+    var navigation2 = NavigationNative.useNavigation();
+    return /* @__PURE__ */ jsx(PluginPage, {
+      useItems: () => {
+        useProxy(VdPluginManager.plugins);
+        useObservable([
+          pluginSettings
+        ]);
+        var vdPlugins = Object.values(VdPluginManager.plugins).map(unifyVdPlugin);
+        var bnPlugins = [
+          ...registeredPlugins.values()
+        ].filter((p) => isPluginInstalled(p.id) && !isCorePlugin(p.id)).map(unifyFelocordPlugin);
+        return [
+          ...vdPlugins,
+          ...bnPlugins
+        ];
+      },
+      ListHeaderComponent: () => {
+        var unproxiedPlugins = Object.values(VdPluginManager.plugins).filter((p) => !p.id.startsWith(VD_PROXY_PREFIX) && !p.id.startsWith(BUNNY_PROXY_PREFIX));
+        if (!unproxiedPlugins.length)
+          return null;
+        return /* @__PURE__ */ jsx(import_react_native19.View, {
+          style: {
+            marginVertical: 12,
+            marginHorizontal: 10
+          },
+          children: /* @__PURE__ */ jsx(Card, {
+            border: "strong",
+            children: /* @__PURE__ */ jsxs(import_react_native19.View, {
+              style: {
+                flex: 1,
+                justifyContent: "center",
+                alignItems: "center",
+                flexDirection: "row"
+              },
+              children: [
+                /* @__PURE__ */ jsxs(import_react_native19.View, {
+                  style: {
+                    gap: 6,
+                    flexShrink: 1
+                  },
+                  children: [
+                    /* @__PURE__ */ jsx(Text, {
+                      variant: "heading-md/bold",
+                      children: "Unproxied Plugins Found"
+                    }),
+                    /* @__PURE__ */ jsx(Text, {
+                      variant: "text-sm/medium",
+                      color: "text-muted",
+                      children: "Plugins installed from unproxied sources may run unverified code in this app without your awareness."
+                    })
+                  ]
+                }),
+                /* @__PURE__ */ jsx(import_react_native19.View, {
+                  style: {
+                    marginLeft: "auto"
+                  },
+                  children: /* @__PURE__ */ jsx(IconButton, {
+                    size: "sm",
+                    variant: "secondary",
+                    icon: findAssetId("CircleInformationIcon-primary"),
+                    style: {
+                      marginLeft: 8
+                    },
+                    onPress: () => {
+                      navigation2.push("BUNNY_CUSTOM_PAGE", {
+                        title: "Unproxied Plugins",
+                        render: () => {
+                          return /* @__PURE__ */ jsx(FlashList, {
+                            data: unproxiedPlugins,
+                            contentContainerStyle: {
+                              padding: 8
+                            },
+                            ItemSeparatorComponent: () => /* @__PURE__ */ jsx(import_react_native19.View, {
+                              style: {
+                                height: 8
+                              }
+                            }),
+                            renderItem: ({ item: p }) => /* @__PURE__ */ jsx(Card, {
+                              children: /* @__PURE__ */ jsx(Text, {
+                                variant: "heading-md/semibold",
+                                children: p.id
+                              })
+                            })
+                          });
+                        }
+                      });
+                    }
+                  })
+                })
+              ]
+            })
+          })
+        });
+      },
+      installAction: {
+        label: "Install a plugin",
+        fetchFn: /* @__PURE__ */ function() {
+          var _ref = _async_to_generator(function* (url2) {
+            if (!url2.startsWith(VD_PROXY_PREFIX) && !url2.startsWith(BUNNY_PROXY_PREFIX) && !settings.developerSettings) {
+              openAlert2("felocord-plugin-unproxied-confirmation", /* @__PURE__ */ jsx(AlertModal2, {
+                title: "Hold On!",
+                content: "You're trying to install a plugin from an unproxied external source. This means you're trusting the creator to run their code in this app without your knowledge. Are you sure you want to continue?",
+                extraContent: /* @__PURE__ */ jsx(Card, {
+                  children: /* @__PURE__ */ jsx(Text, {
+                    variant: "text-md/bold",
+                    children: url2
+                  })
+                }),
+                actions: /* @__PURE__ */ jsxs(AlertActions, {
+                  children: [
+                    /* @__PURE__ */ jsx(AlertActionButton2, {
+                      text: "Continue",
+                      variant: "primary",
+                      onPress: () => {
+                        VdPluginManager.installPlugin(url2).then(() => showToast(Strings.TOASTS_INSTALLED_PLUGIN, findAssetId("Check"))).catch((e) => openAlert2("felocord-plugin-install-failed", /* @__PURE__ */ jsx(AlertModal2, {
+                          title: "Install Failed",
+                          content: `Unable to install plugin from '${url2}':`,
+                          extraContent: /* @__PURE__ */ jsx(Card, {
+                            children: /* @__PURE__ */ jsx(Text, {
+                              variant: "text-md/normal",
+                              children: e instanceof Error ? e.message : String(e)
+                            })
+                          }),
+                          actions: /* @__PURE__ */ jsx(AlertActionButton2, {
+                            text: "Okay",
+                            variant: "primary"
+                          })
+                        })));
+                      }
+                    }),
+                    /* @__PURE__ */ jsx(AlertActionButton2, {
+                      text: "Cancel",
+                      variant: "secondary"
+                    })
+                  ]
+                })
+              }));
+            } else {
+              return yield VdPluginManager.installPlugin(url2);
+            }
+          });
+          return function(url2) {
+            return _ref.apply(this, arguments);
+          };
+        }()
+      }
+    });
+  }
+  var import_react_native19, openAlert2, AlertModal2, AlertActions, AlertActionButton2;
+  var init_Plugins = __esm({
+    "src/core/ui/settings/pages/Plugins/index.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_async_to_generator();
+      init_jsxRuntime();
+      init_i18n();
+      init_AddonPage();
+      init_PluginCard();
+      init_plugins();
+      init_storage();
+      init_plugins4();
+      init_assets();
+      init_settings();
+      init_storage2();
+      init_toasts();
+      init_constants();
+      init_lazy();
+      init_metro();
+      init_common();
+      init_components();
+      import_react_native19 = __toESM(require_react_native());
+      init_felocord();
+      init_vendetta();
+      ({ openAlert: openAlert2 } = lazyDestructure(() => findByProps("openAlert", "dismissAlert")));
+      ({ AlertModal: AlertModal2, AlertActions, AlertActionButton: AlertActionButton2 } = lazyDestructure(() => findByProps("AlertModal", "AlertActions")));
+    }
+  });
+
+  // src/core/ui/components/AddonCard.tsx
+  function AddonCard(props) {
+    var styles = useStyles3();
+    return /* @__PURE__ */ jsx(Card, {
+      children: /* @__PURE__ */ jsxs(Stack, {
+        spacing: 16,
+        children: [
+          /* @__PURE__ */ jsxs(import_react_native20.View, {
+            style: {
+              flexDirection: "row",
+              alignItems: "center"
+            },
+            children: [
+              /* @__PURE__ */ jsxs(import_react_native20.View, {
+                style: styles.headerLeading,
+                children: [
+                  /* @__PURE__ */ jsx(Text, {
+                    style: styles.headerLabel,
+                    children: props.headerLabel
+                  }),
+                  props.headerSublabel && /* @__PURE__ */ jsx(Text, {
+                    style: styles.headerSubtitle,
+                    children: props.headerSublabel
+                  })
+                ]
+              }),
+              /* @__PURE__ */ jsxs(import_react_native20.View, {
+                style: [
+                  styles.headerTrailing,
+                  {
+                    marginLeft: "auto"
+                  }
+                ],
+                children: [
+                  /* @__PURE__ */ jsxs(import_react_native20.View, {
+                    style: styles.actions,
+                    children: [
+                      props.overflowActions && /* @__PURE__ */ jsx(IconButton, {
+                        onPress: () => showSimpleActionSheet3({
+                          key: "CardOverflow",
+                          header: {
+                            title: props.overflowTitle,
+                            icon: props.headerIcon && /* @__PURE__ */ jsx(LegacyFormRow.Icon, {
+                              style: {
+                                marginRight: 8
+                              },
+                              source: findAssetId(props.headerIcon)
+                            }),
+                            onClose: () => hideActionSheet2()
+                          },
+                          options: props.overflowActions?.map((i) => ({
+                            ...i,
+                            icon: findAssetId(i.icon)
+                          }))
+                        }),
+                        size: "sm",
+                        variant: "secondary",
+                        icon: findAssetId("CircleInformationIcon-primary")
+                      }),
+                      props.actions?.map(({ icon, onPress, disabled }) => /* @__PURE__ */ jsx(IconButton, {
+                        onPress,
+                        disabled,
+                        size: "sm",
+                        variant: "secondary",
+                        icon: findAssetId(icon)
+                      }))
+                    ]
+                  }),
+                  props.toggleType && (props.toggleType === "switch" ? /* @__PURE__ */ jsx(FormSwitch, {
+                    value: props.toggleValue(),
+                    onValueChange: props.onToggleChange
+                  }) : /* @__PURE__ */ jsx(import_react_native20.TouchableOpacity, {
+                    onPress: () => {
+                      props.onToggleChange?.(!props.toggleValue());
+                    },
+                    children: /* @__PURE__ */ jsx(FormRadio, {
+                      selected: props.toggleValue()
+                    })
+                  }))
+                ]
+              })
+            ]
+          }),
+          props.descriptionLabel && /* @__PURE__ */ jsx(Text, {
+            variant: "text-md/medium",
+            children: props.descriptionLabel
+          })
+        ]
+      })
+    });
+  }
+  var import_react_native20, hideActionSheet2, showSimpleActionSheet3, useStyles3;
+  var init_AddonCard = __esm({
+    "src/core/ui/components/AddonCard.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_assets();
+      init_lazy();
+      init_components();
+      init_wrappers();
+      init_color();
+      init_styles();
+      import_react_native20 = __toESM(require_react_native());
+      ({ hideActionSheet: hideActionSheet2 } = lazyDestructure(() => findByProps("openLazy", "hideActionSheet")));
+      ({ showSimpleActionSheet: showSimpleActionSheet3 } = lazyDestructure(() => findByProps("showSimpleActionSheet")));
+      useStyles3 = createStyles({
+        card: {
+          backgroundColor: semanticColors?.CARD_SECONDARY_BG,
+          borderRadius: 12,
+          overflow: "hidden"
+        },
+        header: {
+          padding: 0
+        },
+        headerLeading: {
+          flexDirection: "column",
+          justifyContent: "center",
+          scale: 1.2
+        },
+        headerTrailing: {
+          display: "flex",
+          flexDirection: "row",
+          gap: 15,
+          alignItems: "center"
+        },
+        headerLabel: {
+          ...TextStyleSheet["heading-md/semibold"],
+          color: semanticColors.TEXT_NORMAL
+        },
+        headerSubtitle: {
+          ...TextStyleSheet["text-md/semibold"],
+          color: semanticColors.TEXT_MUTED
+        },
+        descriptionLabel: {
+          ...TextStyleSheet["text-md/semibold"],
+          color: semanticColors.TEXT_NORMAL
+        },
+        actions: {
+          flexDirection: "row-reverse",
+          alignItems: "center",
+          gap: 5
+        },
+        iconStyle: {
+          tintColor: semanticColors.LOGO_PRIMARY,
+          opacity: 0.2,
+          height: 64,
+          width: 64,
+          left: void 0,
+          right: "30%",
+          top: "-10%"
+        }
+      });
+    }
+  });
+
+  // src/core/ui/settings/pages/Themes/ThemeCard.tsx
+  function selectAndApply(value, theme) {
+    try {
+      selectTheme(value ? theme : null);
+      applyTheme(value ? theme : null);
+    } catch (e) {
+      console.error("Error while selectAndApply,", e);
+    }
+  }
+  function ThemeCard({ item: theme }) {
+    useProxy(theme);
+    var [removed, setRemoved] = React.useState(false);
+    if (removed)
+      return null;
+    var { authors } = theme.data;
+    return /* @__PURE__ */ jsx(AddonCard, {
+      headerLabel: theme.data.name,
+      headerSublabel: authors ? `by ${authors.map((i) => i.name).join(", ")}` : "",
+      descriptionLabel: theme.data.description ?? "No description.",
+      toggleType: !settings.safeMode?.enabled ? "radio" : void 0,
+      toggleValue: () => themes[theme.id].selected,
+      onToggleChange: (v2) => {
+        selectAndApply(v2, theme);
+      },
+      overflowTitle: theme.data.name,
+      overflowActions: [
+        {
+          icon: "ic_sync_24px",
+          label: Strings.REFETCH,
+          onPress: () => {
+            fetchTheme(theme.id, theme.selected).then(() => {
+              showToast(Strings.THEME_REFETCH_SUCCESSFUL, findAssetId("toast_image_saved"));
+            }).catch(() => {
+              showToast(Strings.THEME_REFETCH_FAILED, findAssetId("Small"));
+            });
+          }
+        },
+        {
+          icon: "copy",
+          label: Strings.COPY_URL,
+          onPress: () => {
+            clipboard.setString(theme.id);
+            showToast.showCopyToClipboard();
+          }
+        },
+        {
+          icon: "ic_message_delete",
+          label: Strings.DELETE,
+          isDestructive: true,
+          onPress: () => showConfirmationAlert({
+            title: Strings.HOLD_UP,
+            content: formatString("ARE_YOU_SURE_TO_DELETE_THEME", {
+              name: theme.data.name
+            }),
+            confirmText: Strings.DELETE,
+            cancelText: Strings.CANCEL,
+            confirmColor: "red",
+            onConfirm: () => {
+              removeTheme(theme.id).then((wasSelected) => {
+                setRemoved(true);
+                if (wasSelected)
+                  selectAndApply(false, theme);
+              }).catch((e) => {
+                showToast(e.message, findAssetId("Small"));
+              });
+            }
+          })
+        }
+      ]
+    });
+  }
+  var init_ThemeCard = __esm({
+    "src/core/ui/settings/pages/Themes/ThemeCard.tsx"() {
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_jsxRuntime();
       init_i18n();
-      init_debug();
+      init_AddonCard();
+      init_alerts();
+      init_storage();
+      init_themes();
+      init_assets();
+      init_settings();
+      init_common();
+      init_toasts();
+    }
+  });
+
+  // src/core/ui/settings/pages/Themes/index.tsx
+  var Themes_exports = {};
+  __export(Themes_exports, {
+    default: () => Themes
+  });
+  function Themes() {
+    useProxy(settings);
+    useProxy(themes);
+    return /* @__PURE__ */ jsx(AddonPage, {
+      title: Strings.THEMES,
+      searchKeywords: [
+        "data.name",
+        "data.description",
+        (p) => p.data.authors?.map((a) => a.name).join(", ")
+      ],
+      sortOptions: {
+        "Name (A-Z)": (a, b3) => a.name.localeCompare(b3.name),
+        "Name (Z-A)": (a, b3) => b3.name.localeCompare(a.name)
+      },
+      installAction: {
+        label: "Install a theme",
+        fetchFn: installTheme
+      },
+      items: Object.values(themes),
+      safeModeHint: {
+        message: formatString("SAFE_MODE_NOTICE_THEMES", {
+          enabled: Boolean(settings.safeMode?.currentThemeId)
+        }),
+        footer: settings.safeMode?.currentThemeId && /* @__PURE__ */ jsx(Button, {
+          size: "small",
+          text: Strings.DISABLE_THEME,
+          onPress: () => delete settings.safeMode?.currentThemeId,
+          style: {
+            marginTop: 8
+          }
+        })
+      },
+      CardComponent: ThemeCard
+    });
+  }
+  var init_Themes = __esm({
+    "src/core/ui/settings/pages/Themes/index.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_i18n();
+      init_AddonPage();
+      init_ThemeCard();
+      init_storage();
+      init_themes();
+      init_settings();
+      init_components();
+    }
+  });
+
+  // src/lib/addons/fonts/index.ts
+  var fonts_exports = {};
+  __export(fonts_exports, {
+    fonts: () => fonts,
+    installFont: () => installFont,
+    removeFont: () => removeFont,
+    saveFont: () => saveFont,
+    selectFont: () => selectFont,
+    updateFonts: () => updateFonts,
+    validateFont: () => validateFont
+  });
+  function writeFont(font) {
+    return _writeFont.apply(this, arguments);
+  }
+  function _writeFont() {
+    _writeFont = _async_to_generator(function* (font) {
+      if (!font && font !== null)
+        throw new Error("Arg font must be a valid object or null");
+      if (font) {
+        yield writeFile("fonts.json", JSON.stringify(font));
+      } else {
+        yield removeFile("fonts.json");
+      }
+    });
+    return _writeFont.apply(this, arguments);
+  }
+  function validateFont(font) {
+    if (!font || typeof font !== "object")
+      throw new Error("URL returned a null/non-object JSON");
+    if (typeof font.spec !== "number")
+      throw new Error("Invalid font 'spec' number");
+    if (font.spec !== 1)
+      throw new Error("Only fonts which follows spec:1 are supported");
+    var requiredFields = [
+      "name",
+      "main"
+    ];
+    if (requiredFields.some((f) => !font[f]))
+      throw new Error(`Font is missing one of the fields: ${requiredFields}`);
+    if (font.name.startsWith("__"))
+      throw new Error("Font names cannot start with __");
+    if (font.name in fonts)
+      throw new Error(`There is already a font named '${font.name}' installed`);
+  }
+  function saveFont(data) {
+    return _saveFont.apply(this, arguments);
+  }
+  function _saveFont() {
+    _saveFont = _async_to_generator(function* (data, selected = false) {
+      var fontDefJson;
+      if (typeof data === "object" && data.__source)
+        data = data.__source;
+      if (typeof data === "string") {
+        try {
+          fontDefJson = yield (yield safeFetch(data)).json();
+          fontDefJson.__source = data;
+        } catch (e) {
+          throw new Error(`Failed to fetch fonts at ${data}`, {
+            cause: e
+          });
+        }
+      } else {
+        fontDefJson = data;
+      }
+      validateFont(fontDefJson);
+      try {
+        yield Promise.all(Object.entries(fontDefJson.main).map(/* @__PURE__ */ function() {
+          var _ref = _async_to_generator(function* ([font, url2]) {
+            var ext = url2.split(".").pop();
+            if (ext !== "ttf" && ext !== "otf")
+              ext = "ttf";
+            var path = `downloads/fonts/${fontDefJson.name}/${font}.${ext}`;
+            if (!(yield fileExists(path)))
+              yield downloadFile(url2, path);
+          });
+          return function(_2) {
+            return _ref.apply(this, arguments);
+          };
+        }()));
+      } catch (e) {
+        throw new Error("Failed to download font assets", {
+          cause: e
+        });
+      }
+      fonts[fontDefJson.name] = fontDefJson;
+      if (selected)
+        writeFont(fonts[fontDefJson.name]);
+      return fontDefJson;
+    });
+    return _saveFont.apply(this, arguments);
+  }
+  function installFont(url2) {
+    return _installFont.apply(this, arguments);
+  }
+  function _installFont() {
+    _installFont = _async_to_generator(function* (url2, selected = false) {
+      if (typeof url2 !== "string" || Object.values(fonts).some((f) => typeof f === "object" && f.__source === url2)) {
+        throw new Error("Invalid source or font was already installed");
+      }
+      var font = yield saveFont(url2);
+      if (selected)
+        yield selectFont(font.name);
+    });
+    return _installFont.apply(this, arguments);
+  }
+  function selectFont(name) {
+    return _selectFont.apply(this, arguments);
+  }
+  function _selectFont() {
+    _selectFont = _async_to_generator(function* (name) {
+      if (name && !(name in fonts))
+        throw new Error("Selected font does not exist!");
+      if (name) {
+        fonts.__selected = name;
+      } else {
+        delete fonts.__selected;
+      }
+      yield writeFont(name == null ? null : fonts[name]);
+    });
+    return _selectFont.apply(this, arguments);
+  }
+  function removeFont(name) {
+    return _removeFont.apply(this, arguments);
+  }
+  function _removeFont() {
+    _removeFont = _async_to_generator(function* (name) {
+      var selected = fonts.__selected === name;
+      if (selected)
+        yield selectFont(null);
+      delete fonts[name];
+      try {
+        yield clearFolder(`downloads/fonts/${name}`);
+      } catch (e) {
+      }
+    });
+    return _removeFont.apply(this, arguments);
+  }
+  function updateFonts() {
+    return _updateFonts.apply(this, arguments);
+  }
+  function _updateFonts() {
+    _updateFonts = _async_to_generator(function* () {
+      yield awaitStorage(fonts);
+      yield allSettled(Object.keys(fonts).map((name) => saveFont(fonts[name], fonts.__selected === name)));
+    });
+    return _updateFonts.apply(this, arguments);
+  }
+  var fonts;
+  var init_fonts = __esm({
+    "src/lib/addons/fonts/index.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_async_to_generator();
+      init_storage();
+      init_fs();
+      init_utils();
+      fonts = wrapSync(createStorage(createMMKVBackend("BUNNY_FONTS")));
+    }
+  });
+
+  // src/core/ui/settings/pages/Fonts/FontEditor.tsx
+  function guessFontName(urls) {
+    var fileNames = urls.map((url2) => {
+      var { pathname } = new URL(url2);
+      var fileName = pathname.replace(/\.[^/.]+$/, "");
+      return fileName.split("/").pop();
+    }).filter(Boolean);
+    var shortest = fileNames.reduce((shortest2, name) => {
+      return name.length < shortest2.length ? name : shortest2;
+    }, fileNames[0] || "");
+    return shortest?.replace(/-[A-Za-z]*$/, "") || null;
+  }
+  function RevengeFontsExtractor({ fonts: fonts2, setName }) {
+    var currentTheme2 = getCurrentTheme().data;
+    var themeFonts = currentTheme2.fonts;
+    var [fontName, setFontName] = (0, import_react6.useState)(guessFontName(Object.values(themeFonts)));
+    var [error, setError] = (0, import_react6.useState)(void 0);
+    return /* @__PURE__ */ jsxs(import_react_native21.View, {
+      style: {
+        padding: 8,
+        paddingBottom: 16,
+        gap: 12
+      },
+      children: [
+        /* @__PURE__ */ jsx(TextInput, {
+          autoFocus: true,
+          size: "md",
+          label: Strings.FONT_NAME,
+          value: fontName,
+          placeholder: fontName || "Whitney",
+          onChange: setFontName,
+          errorMessage: error,
+          state: error ? "error" : void 0
+        }),
+        /* @__PURE__ */ jsx(Text, {
+          variant: "text-xs/normal",
+          color: "text-muted",
+          children: formatString("THEME_EXTRACTOR_DESC", {
+            fonts: Object.keys(themeFonts).join(Strings.SEPARATOR)
+          })
+        }),
+        /* @__PURE__ */ jsx(Button, {
+          size: "md",
+          variant: "primary",
+          text: Strings.EXTRACT,
+          disabled: !fontName,
+          onPress: () => {
+            if (!fontName)
+              return;
+            try {
+              validateFont({
+                spec: 1,
+                name: fontName,
+                main: themeFonts
+              });
+              setName(fontName);
+              Object.assign(fonts2, themeFonts);
+              actionSheet2.hideActionSheet();
+            } catch (e) {
+              setError(String(e));
+            }
+          }
+        })
+      ]
+    });
+  }
+  function JsonFontImporter({ fonts: fonts2, setName, setSource }) {
+    var [fontLink, setFontLink] = (0, import_react6.useState)("");
+    var [saving, setSaving] = (0, import_react6.useState)(false);
+    var [error, setError] = (0, import_react6.useState)(void 0);
+    return /* @__PURE__ */ jsxs(import_react_native21.View, {
+      style: {
+        padding: 8,
+        paddingBottom: 16,
+        gap: 12
+      },
+      children: [
+        /* @__PURE__ */ jsx(TextInput, {
+          autoFocus: true,
+          size: "md",
+          label: "Font Link",
+          value: fontLink,
+          placeholder: "https://link.to/font/pack.json",
+          onChange: setFontLink,
+          errorMessage: error,
+          state: error ? "error" : void 0
+        }),
+        /* @__PURE__ */ jsx(Button, {
+          size: "md",
+          variant: "primary",
+          text: "Import",
+          disabled: !fontLink || saving,
+          loading: saving,
+          onPress: () => {
+            setSaving(true);
+            _async_to_generator(function* () {
+              var res = yield safeFetch(fontLink, {
+                cache: "no-store"
+              });
+              var json = yield res.json();
+              validateFont(json);
+              setName(json.name);
+              setSource(fontLink);
+              Object.assign(fonts2, json.main);
+            })().then(() => actionSheet2.hideActionSheet()).catch((e) => setError(String(e))).finally(() => setSaving(false));
+          }
+        })
+      ]
+    });
+  }
+  function EntryEditorActionSheet(props) {
+    var [familyName, setFamilyName] = (0, import_react6.useState)(props.name);
+    var [fontUrl, setFontUrl] = (0, import_react6.useState)(props.fontEntries[props.name]);
+    return /* @__PURE__ */ jsxs(import_react_native21.View, {
+      style: {
+        padding: 8,
+        paddingBottom: 16,
+        gap: 12
+      },
+      children: [
+        /* @__PURE__ */ jsx(TextInput, {
+          autoFocus: true,
+          size: "md",
+          label: "Family Name (to override)",
+          value: familyName,
+          placeholder: "ggsans-Bold",
+          onChange: setFamilyName
+        }),
+        /* @__PURE__ */ jsx(TextInput, {
+          size: "md",
+          label: "Font URL",
+          value: fontUrl,
+          placeholder: "https://link.to/the/font.ttf",
+          onChange: setFontUrl
+        }),
+        /* @__PURE__ */ jsx(Button, {
+          size: "md",
+          variant: "primary",
+          text: "Apply",
+          onPress: () => {
+            delete props.fontEntries[props.name];
+            props.fontEntries[familyName] = fontUrl;
+          }
+        })
+      ]
+    });
+  }
+  function promptActionSheet(Component, fontEntries, props) {
+    actionSheet2.openLazy(Promise.resolve({
+      default: () => /* @__PURE__ */ jsx(ErrorBoundary, {
+        children: /* @__PURE__ */ jsxs(ActionSheet, {
+          children: [
+            /* @__PURE__ */ jsx(BottomSheetTitleHeader, {
+              title: "Import Font"
+            }),
+            /* @__PURE__ */ jsx(Component, {
+              fonts: fontEntries,
+              ...props
+            })
+          ]
+        })
+      })
+    }), "FontEditorActionSheet");
+  }
+  function NewEntryRow({ fontEntry }) {
+    var nameRef = (0, import_react6.useRef)();
+    var urlRef = (0, import_react6.useRef)();
+    var [nameSet, setNameSet] = (0, import_react6.useState)(false);
+    var [error, setError] = (0, import_react6.useState)();
+    return /* @__PURE__ */ jsxs(import_react_native21.View, {
+      style: {
+        flexDirection: "row",
+        gap: 8,
+        justifyContent: "flex-start"
+      },
+      children: [
+        /* @__PURE__ */ jsx(import_react_native21.View, {
+          style: {
+            flex: 1
+          },
+          children: /* @__PURE__ */ jsx(TextInput, {
+            isRound: true,
+            size: "md",
+            label: nameSet ? nameRef.current : void 0,
+            placeholder: nameSet ? "https://path.to/the/file.ttf" : "PostScript name (e.g. ggsans-Bold)",
+            leadingIcon: () => nameSet ? null : /* @__PURE__ */ jsx(TableRow.Icon, {
+              source: findAssetId("PlusSmallIcon")
+            }),
+            leadingText: nameSet ? nameRef.current : "",
+            onChange: (text) => (nameSet ? urlRef : nameRef).current = text,
+            errorMessage: error,
+            state: error ? "error" : void 0
+          })
+        }),
+        nameSet && /* @__PURE__ */ jsx(IconButton, {
+          size: "md",
+          variant: "secondary",
+          onPress: () => {
+            nameRef.current = "";
+            setNameSet(false);
+          },
+          icon: findAssetId("TrashIcon")
+        }),
+        /* @__PURE__ */ jsx(IconButton, {
+          size: "md",
+          variant: "primary",
+          onPress: () => {
+            if (!nameSet && nameRef.current) {
+              setNameSet(true);
+            } else if (nameSet && nameRef.current && urlRef.current) {
+              try {
+                var parsedUrl = new URL(urlRef.current);
+                if (!parsedUrl.protocol || !parsedUrl.host) {
+                  throw "Invalid URL";
+                }
+                fontEntry[nameRef.current] = urlRef.current;
+                nameRef.current = void 0;
+                urlRef.current = void 0;
+                setNameSet(false);
+              } catch (e) {
+                setError(String(e));
+              }
+            }
+          },
+          icon: findAssetId(nameSet ? "PlusSmallIcon" : "ArrowLargeRightIcon")
+        })
+      ]
+    });
+  }
+  function FontEditor(props) {
+    var [name, setName] = (0, import_react6.useState)(props.name);
+    var [source, setSource] = (0, import_react6.useState)();
+    var [importing, setIsImporting] = (0, import_react6.useState)(false);
+    var memoEntry = (0, import_react6.useMemo)(() => {
+      return createProxy(props.name ? {
+        ...fonts[props.name].main
+      } : {}).proxy;
+    }, [
+      props.name
+    ]);
+    var fontEntries = useProxy(memoEntry);
+    var navigation2 = NavigationNative.useNavigation();
+    return /* @__PURE__ */ jsx(import_react_native21.ScrollView, {
+      style: {
+        flex: 1
+      },
+      contentContainerStyle: {
+        paddingBottom: 38
+      },
+      children: /* @__PURE__ */ jsxs(Stack, {
+        style: {
+          paddingVertical: 24,
+          paddingHorizontal: 12
+        },
+        spacing: 12,
+        children: [
+          !props.name ? /* @__PURE__ */ jsxs(TableRowGroup, {
+            title: "Import",
+            children: [
+              getCurrentTheme()?.data?.fonts && /* @__PURE__ */ jsx(TableRow, {
+                label: Strings.LABEL_EXTRACT_FONTS_FROM_THEME,
+                subLabel: Strings.DESC_EXTRACT_FONTS_FROM_THEME,
+                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                  source: findAssetId("HammerIcon")
+                }),
+                onPress: () => promptActionSheet(RevengeFontsExtractor, fontEntries, {
+                  setName
+                })
+              }),
+              /* @__PURE__ */ jsx(TableRow, {
+                label: "Import font entries from a link",
+                subLabel: "Directly import from a link with a pre-configured JSON file",
+                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                  source: findAssetId("LinkIcon")
+                }),
+                onPress: () => promptActionSheet(JsonFontImporter, fontEntries, {
+                  setName,
+                  setSource
+                })
+              })
+            ]
+          }) : /* @__PURE__ */ jsxs(TableRowGroup, {
+            title: "Actions",
+            children: [
+              /* @__PURE__ */ jsx(TableRow, {
+                label: "Refetch fonts from source",
+                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                  source: findAssetId("RetryIcon")
+                }),
+                onPress: /* @__PURE__ */ _async_to_generator(function* () {
+                  var ftCopy = {
+                    ...fonts[props.name]
+                  };
+                  yield removeFont(props.name);
+                  yield saveFont(ftCopy);
+                  navigation2.goBack();
+                })
+              }),
+              /* @__PURE__ */ jsx(TableRow, {
+                label: "Delete font pack",
+                icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                  source: findAssetId("TrashIcon")
+                }),
+                onPress: () => removeFont(props.name).then(() => navigation2.goBack())
+              })
+            ]
+          }),
+          /* @__PURE__ */ jsx(TextInput, {
+            size: "lg",
+            value: name,
+            label: Strings.FONT_NAME,
+            placeholder: "Whitney",
+            onChange: setName
+          }),
+          /* @__PURE__ */ jsxs(TableRowGroup, {
+            title: "Font Entries",
+            children: [
+              Object.entries(fontEntries).map(([name2, url2]) => {
+                return /* @__PURE__ */ jsx(TableRow, {
+                  label: name2,
+                  subLabel: url2,
+                  trailing: /* @__PURE__ */ jsxs(Stack, {
+                    spacing: 2,
+                    direction: "horizontal",
+                    children: [
+                      /* @__PURE__ */ jsx(IconButton, {
+                        size: "sm",
+                        variant: "secondary",
+                        icon: findAssetId("PencilIcon"),
+                        onPress: () => promptActionSheet(EntryEditorActionSheet, fontEntries, {
+                          name: name2,
+                          fontEntries
+                        })
+                      }),
+                      /* @__PURE__ */ jsx(IconButton, {
+                        size: "sm",
+                        variant: "secondary",
+                        icon: findAssetId("TrashIcon"),
+                        onPress: () => delete fontEntries[name2]
+                      })
+                    ]
+                  })
+                });
+              }),
+              /* @__PURE__ */ jsx(TableRow, {
+                label: /* @__PURE__ */ jsx(NewEntryRow, {
+                  fontEntry: fontEntries
+                })
+              })
+            ]
+          }),
+          /* @__PURE__ */ jsx(import_react_native21.View, {
+            style: {
+              flexDirection: "row",
+              justifyContent: "flex-end",
+              bottom: 0,
+              left: 0
+            },
+            children: /* @__PURE__ */ jsx(Button, {
+              size: "lg",
+              loading: importing,
+              disabled: importing || !name || Object.keys(fontEntries).length === 0,
+              variant: "primary",
+              text: props.name ? "Save" : "Import",
+              onPress: /* @__PURE__ */ _async_to_generator(function* () {
+                if (!name)
+                  return;
+                setIsImporting(true);
+                if (!props.name) {
+                  saveFont({
+                    spec: 1,
+                    name,
+                    main: fontEntries,
+                    __source: source
+                  }).then(() => navigation2.goBack()).finally(() => setIsImporting(false));
+                } else {
+                  Object.assign(fonts[props.name], {
+                    name,
+                    main: fontEntries,
+                    __edited: true
+                  });
+                  setIsImporting(false);
+                  navigation2.goBack();
+                }
+              }),
+              icon: findAssetId(props.name ? "toast_image_saved" : "DownloadIcon"),
+              style: {
+                marginLeft: 8
+              }
+            })
+          })
+        ]
+      })
+    });
+  }
+  var import_react6, import_react_native21, actionSheet2;
+  var init_FontEditor = __esm({
+    "src/core/ui/settings/pages/Fonts/FontEditor.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_async_to_generator();
+      init_jsxRuntime();
+      init_i18n();
+      init_storage();
+      init_fonts();
+      init_themes();
+      init_assets();
+      init_utils();
+      init_common();
+      init_components();
+      init_wrappers();
+      init_components2();
+      import_react6 = __toESM(require_react());
+      import_react_native21 = __toESM(require_react_native());
+      actionSheet2 = findByPropsLazy("hideActionSheet");
+    }
+  });
+
+  // globals:@shopify/react-native-skia
+  var require_react_native_skia = __commonJS({
+    "globals:@shopify/react-native-skia"(exports, module) {
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      module.exports = require_depsModule()["@shopify/react-native-skia"];
+    }
+  });
+
+  // src/core/ui/settings/pages/Fonts/FontCard.tsx
+  function FontPreview({ font }) {
+    var TEXT_NORMAL = useToken(tokens.colors.TEXT_NORMAL);
+    var { fontFamily: fontFamilyList, fontSize } = TextStyleSheet["text-md/medium"];
+    var fontFamily = fontFamilyList.split(/,/g)[0];
+    var typeface = Skia.useFont(font.main[fontFamily])?.getTypeface();
+    var paragraph = (0, import_react7.useMemo)(() => {
+      if (!typeface)
+        return null;
+      var fMgr = SkiaApi.TypefaceFontProvider.Make();
+      fMgr.registerFont(typeface, fontFamily);
+      return SkiaApi.ParagraphBuilder.Make({}, fMgr).pushStyle({
+        color: SkiaApi.Color(TEXT_NORMAL),
+        fontFamilies: [
+          fontFamily
+        ],
+        fontSize
+      }).addText("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.").pop().build();
+    }, [
+      typeface
+    ]);
+    return (
+      // This does not work, actually :woeis:
+      /* @__PURE__ */ jsx(import_react_native22.View, {
+        style: {
+          height: 64
+        },
+        children: typeface ? /* @__PURE__ */ jsx(Skia.Canvas, {
+          style: {
+            height: 64
+          },
+          children: /* @__PURE__ */ jsx(Skia.Paragraph, {
+            paragraph,
+            x: 0,
+            y: 0,
+            width: 300
+          })
+        }) : /* @__PURE__ */ jsx(import_react_native22.View, {
+          style: {
+            justifyContent: "center",
+            alignItems: "center"
+          },
+          children: /* @__PURE__ */ jsx(Text, {
+            color: "text-muted",
+            variant: "heading-lg/semibold",
+            children: "Loading..."
+          })
+        })
+      })
+    );
+  }
+  function FontCard({ item: font }) {
+    useProxy(fonts);
+    var navigation2 = NavigationNative.useNavigation();
+    var selected = fonts.__selected === font.name;
+    return /* @__PURE__ */ jsx(Card, {
+      children: /* @__PURE__ */ jsxs(Stack, {
+        spacing: 16,
+        children: [
+          /* @__PURE__ */ jsxs(import_react_native22.View, {
+            style: {
+              flexDirection: "row",
+              alignItems: "center"
+            },
+            children: [
+              /* @__PURE__ */ jsx(import_react_native22.View, {
+                children: /* @__PURE__ */ jsx(Text, {
+                  variant: "heading-lg/semibold",
+                  children: font.name
+                })
+              }),
+              /* @__PURE__ */ jsx(import_react_native22.View, {
+                style: {
+                  marginLeft: "auto"
+                },
+                children: /* @__PURE__ */ jsxs(Stack, {
+                  spacing: 12,
+                  direction: "horizontal",
+                  children: [
+                    /* @__PURE__ */ jsx(IconButton, {
+                      onPress: () => {
+                        navigation2.push("BUNNY_CUSTOM_PAGE", {
+                          title: "Edit Font",
+                          render: () => /* @__PURE__ */ jsx(FontEditor, {
+                            name: font.name
+                          })
+                        });
+                      },
+                      size: "sm",
+                      variant: "secondary",
+                      disabled: selected,
+                      icon: findAssetId("PencilIcon")
+                    }),
+                    /* @__PURE__ */ jsx(Button, {
+                      size: "sm",
+                      variant: selected ? "secondary" : "primary",
+                      text: selected ? "Unapply" : "Apply",
+                      onPress: /* @__PURE__ */ _async_to_generator(function* () {
+                        yield selectFont(selected ? null : font.name);
+                        showConfirmationAlert({
+                          title: Strings.HOLD_UP,
+                          content: "Reload Discord to apply changes?",
+                          confirmText: Strings.RELOAD,
+                          cancelText: Strings.CANCEL,
+                          confirmColor: "red",
+                          onConfirm: BundleUpdaterManager.reload
+                        });
+                      })
+                    })
+                  ]
+                })
+              })
+            ]
+          }),
+          /* @__PURE__ */ jsx(FontPreview, {
+            font
+          })
+        ]
+      })
+    });
+  }
+  var Skia, import_react7, import_react_native22, useToken;
+  var init_FontCard = __esm({
+    "src/core/ui/settings/pages/Fonts/FontCard.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_async_to_generator();
+      init_jsxRuntime();
+      init_i18n();
+      init_alerts();
+      init_storage();
+      init_fonts();
+      init_assets();
       init_modules();
-      init_patcher();
+      init_lazy();
+      init_metro();
+      init_common();
+      init_components();
+      Skia = __toESM(require_react_native_skia());
+      init_styles();
+      import_react7 = __toESM(require_react());
+      import_react_native22 = __toESM(require_react_native());
+      init_FontEditor();
+      ({ useToken } = lazyDestructure(() => findByProps("useToken")));
+    }
+  });
+
+  // src/core/ui/settings/pages/Fonts/index.tsx
+  var Fonts_exports = {};
+  __export(Fonts_exports, {
+    default: () => Fonts
+  });
+  function Fonts() {
+    useProxy(settings);
+    useProxy(fonts);
+    var navigation2 = NavigationNative.useNavigation();
+    return /* @__PURE__ */ jsx(AddonPage, {
+      title: Strings.FONTS,
+      searchKeywords: [
+        "name",
+        "description"
+      ],
+      sortOptions: {
+        "Name (A-Z)": (a, b3) => a.name.localeCompare(b3.name),
+        "Name (Z-A)": (a, b3) => b3.name.localeCompare(a.name)
+      },
+      items: Object.values(fonts),
+      safeModeHint: {
+        message: Strings.SAFE_MODE_NOTICE_FONTS
+      },
+      CardComponent: FontCard,
+      installAction: {
+        label: "Install a font",
+        onPress: () => {
+          navigation2.push("BUNNY_CUSTOM_PAGE", {
+            title: "Import Font",
+            render: () => /* @__PURE__ */ jsx(FontEditor, {})
+          });
+        }
+      }
+    });
+  }
+  var init_Fonts = __esm({
+    "src/core/ui/settings/pages/Fonts/index.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_i18n();
+      init_AddonPage();
+      init_FontEditor();
+      init_storage();
+      init_fonts();
+      init_settings();
+      init_common();
+      init_FontCard();
+    }
+  });
+
+  // src/core/ui/hooks/useFS.ts
+  function useFileExists(path, prefix) {
+    var [state, setState] = (0, import_react8.useState)(2);
+    var check = () => fileExists(path, prefix).then((exists) => setState(exists ? 1 : 0)).catch(() => setState(3));
+    var customFS = (0, import_react8.useMemo)(() => new Proxy(fs_exports, {
+      get(target, p, receiver) {
+        var val = Reflect.get(target, p, receiver);
+        if (typeof val !== "function")
+          return;
+        return (...args) => {
+          var promise = (check(), val(...args));
+          if (promise?.constructor?.name === "Promise") {
+            setState(2);
+            promise.finally(check);
+          }
+          return promise;
+        };
+      }
+    }), []);
+    (0, import_react8.useEffect)(() => void check(), []);
+    return [
+      state,
+      customFS
+    ];
+  }
+  var import_react8, CheckState;
+  var init_useFS = __esm({
+    "src/core/ui/hooks/useFS.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_fs();
+      import_react8 = __toESM(require_react());
+      (function(CheckState2) {
+        CheckState2[CheckState2["FALSE"] = 0] = "FALSE";
+        CheckState2[CheckState2["TRUE"] = 1] = "TRUE";
+        CheckState2[CheckState2["LOADING"] = 2] = "LOADING";
+        CheckState2[CheckState2["ERROR"] = 3] = "ERROR";
+      })(CheckState || (CheckState = {}));
+    }
+  });
+
+  // src/core/ui/settings/pages/Developer/AssetDisplay.tsx
+  function AssetDisplay({ asset }) {
+    return /* @__PURE__ */ jsx(LegacyFormRow, {
+      label: `${asset.name} - ${asset.id}`,
+      trailing: /* @__PURE__ */ jsx(import_react_native23.Image, {
+        source: asset.id,
+        style: {
+          width: 32,
+          height: 32
+        }
+      }),
+      onPress: () => {
+        clipboard.setString(asset.name);
+        showToast.showCopyToClipboard();
+      }
+    });
+  }
+  var import_react_native23;
+  var init_AssetDisplay = __esm({
+    "src/core/ui/settings/pages/Developer/AssetDisplay.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_common();
+      init_components();
+      init_toasts();
+      import_react_native23 = __toESM(require_react_native());
+    }
+  });
+
+  // src/core/ui/settings/pages/Developer/AssetBrowser.tsx
+  function AssetBrowser() {
+    var [search, setSearch] = React.useState("");
+    return /* @__PURE__ */ jsx(ErrorBoundary, {
+      children: /* @__PURE__ */ jsxs(import_react_native24.View, {
+        style: {
+          flex: 1
+        },
+        children: [
+          /* @__PURE__ */ jsx(Search_default, {
+            style: {
+              margin: 10
+            },
+            onChangeText: (v2) => setSearch(v2)
+          }),
+          /* @__PURE__ */ jsx(import_react_native24.FlatList, {
+            data: Object.values(assetsMap).filter((a) => a.name.includes(search) || a.id.toString() === search),
+            renderItem: ({ item }) => /* @__PURE__ */ jsx(AssetDisplay, {
+              asset: item
+            }),
+            ItemSeparatorComponent: LegacyFormDivider,
+            keyExtractor: (item) => item.name
+          })
+        ]
+      })
+    });
+  }
+  var import_react_native24;
+  var init_AssetBrowser = __esm({
+    "src/core/ui/settings/pages/Developer/AssetBrowser.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_AssetDisplay();
+      init_assets();
+      init_components();
+      init_components2();
+      import_react_native24 = __toESM(require_react_native());
+    }
+  });
+
+  // src/core/ui/settings/pages/Developer/index.tsx
+  var Developer_exports = {};
+  __export(Developer_exports, {
+    default: () => Developer
+  });
+  function Developer() {
+    var [rdtFileExists, fs] = useFileExists("preloads/reactDevtools.js");
+    var styles = useStyles4();
+    var navigation2 = NavigationNative.useNavigation();
+    useProxy(settings);
+    useProxy(loaderConfig);
+    return /* @__PURE__ */ jsx(ErrorBoundary, {
+      children: /* @__PURE__ */ jsx(import_react_native25.ScrollView, {
+        style: {
+          flex: 1
+        },
+        contentContainerStyle: {
+          paddingBottom: 38
+        },
+        children: /* @__PURE__ */ jsxs(Stack, {
+          style: {
+            paddingVertical: 24,
+            paddingHorizontal: 12
+          },
+          spacing: 24,
+          children: [
+            /* @__PURE__ */ jsx(TextInput, {
+              label: Strings.DEBUGGER_URL,
+              placeholder: "127.0.0.1:9090",
+              size: "md",
+              leadingIcon: () => /* @__PURE__ */ jsx(LegacyFormText, {
+                style: styles.leadingText,
+                children: "ws://"
+              }),
+              defaultValue: settings.debuggerUrl,
+              onChange: (v2) => settings.debuggerUrl = v2
+            }),
+            /* @__PURE__ */ jsxs(TableRowGroup, {
+              title: Strings.DEBUG,
+              children: [
+                /* @__PURE__ */ jsx(TableRow, {
+                  label: Strings.CONNECT_TO_DEBUG_WEBSOCKET,
+                  icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                    source: findAssetId("copy")
+                  }),
+                  onPress: () => connectToDebugger(settings.debuggerUrl)
+                }),
+                isReactDevToolsPreloaded() && /* @__PURE__ */ jsx(Fragment, {
+                  children: /* @__PURE__ */ jsx(TableRow, {
+                    label: Strings.CONNECT_TO_REACT_DEVTOOLS,
+                    icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                      source: findAssetId("ic_badge_staff")
+                    }),
+                    onPress: () => window[getReactDevToolsProp() || "__vendetta_rdc"]?.connectToDevTools({
+                      host: settings.debuggerUrl.split(":")?.[0],
+                      resolveRNStyle: import_react_native25.StyleSheet.flatten
+                    })
+                  })
+                })
+              ]
+            }),
+            isLoaderConfigSupported() && /* @__PURE__ */ jsx(Fragment, {
+              children: /* @__PURE__ */ jsxs(TableRowGroup, {
+                title: "Loader config",
+                children: [
+                  /* @__PURE__ */ jsx(TableSwitchRow, {
+                    label: Strings.LOAD_FROM_CUSTOM_URL,
+                    subLabel: Strings.LOAD_FROM_CUSTOM_URL_DEC,
+                    icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                      source: findAssetId("copy")
+                    }),
+                    value: loaderConfig.customLoadUrl.enabled,
+                    onValueChange: (v2) => {
+                      loaderConfig.customLoadUrl.enabled = v2;
+                    }
+                  }),
+                  loaderConfig.customLoadUrl.enabled && /* @__PURE__ */ jsx(TableRow, {
+                    label: /* @__PURE__ */ jsx(TextInput, {
+                      defaultValue: loaderConfig.customLoadUrl.url,
+                      size: "md",
+                      onChange: (v2) => loaderConfig.customLoadUrl.url = v2,
+                      placeholder: "http://localhost:4040/vendetta.js",
+                      label: Strings.BUNNY_URL
+                    })
+                  }),
+                  isReactDevToolsPreloaded() && isVendettaLoader() && /* @__PURE__ */ jsx(TableSwitchRow, {
+                    label: Strings.LOAD_REACT_DEVTOOLS,
+                    subLabel: `${Strings.VERSION}: ${getReactDevToolsVersion()}`,
+                    icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                      source: findAssetId("ic_badge_staff")
+                    }),
+                    value: loaderConfig.loadReactDevTools,
+                    onValueChange: (v2) => {
+                      loaderConfig.loadReactDevTools = v2;
+                    }
+                  })
+                ]
+              })
+            }),
+            /* @__PURE__ */ jsxs(TableRowGroup, {
+              title: "Other",
+              children: [
+                /* @__PURE__ */ jsx(TableRow, {
+                  arrow: true,
+                  label: Strings.ASSET_BROWSER,
+                  icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                    source: findAssetId("ic_image")
+                  }),
+                  trailing: TableRow.Arrow,
+                  onPress: () => navigation2.push("BUNNY_CUSTOM_PAGE", {
+                    title: Strings.ASSET_BROWSER,
+                    render: AssetBrowser
+                  })
+                }),
+                /* @__PURE__ */ jsx(TableRow, {
+                  arrow: true,
+                  label: Strings.ERROR_BOUNDARY_TOOLS_LABEL,
+                  icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                    source: findAssetId("ic_warning_24px")
+                  }),
+                  onPress: () => showSimpleActionSheet4({
+                    key: "ErrorBoundaryTools",
+                    header: {
+                      title: "Which ErrorBoundary do you want to trip?",
+                      icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                        style: {
+                          marginRight: 8
+                        },
+                        source: findAssetId("ic_warning_24px")
+                      }),
+                      onClose: () => hideActionSheet3()
+                    },
+                    options: [
+                      // @ts-expect-error
+                      // Of course, to trigger an error, we need to do something incorrectly. The below will do!
+                      {
+                        label: Strings.BUNNY,
+                        onPress: () => navigation2.push("BUNNY_CUSTOM_PAGE", {
+                          render: () => /* @__PURE__ */ jsx("undefined", {})
+                        })
+                      },
+                      {
+                        label: "Discord",
+                        isDestructive: true,
+                        onPress: () => navigation2.push("BUNNY_CUSTOM_PAGE", {
+                          noErrorBoundary: true
+                        })
+                      }
+                    ]
+                  })
+                }),
+                /* @__PURE__ */ jsx(TableRow, {
+                  label: Strings.INSTALL_REACT_DEVTOOLS,
+                  subLabel: Strings.RESTART_REQUIRED_TO_TAKE_EFFECT,
+                  icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                    source: findAssetId("DownloadIcon")
+                  }),
+                  trailing: /* @__PURE__ */ jsx(Button, {
+                    size: "sm",
+                    loading: rdtFileExists === CheckState.LOADING,
+                    disabled: rdtFileExists === CheckState.LOADING,
+                    variant: rdtFileExists === CheckState.TRUE ? "secondary" : "primary",
+                    text: rdtFileExists === CheckState.TRUE ? Strings.UNINSTALL : Strings.INSTALL,
+                    onPress: /* @__PURE__ */ _async_to_generator(function* () {
+                      if (rdtFileExists === CheckState.FALSE) {
+                        fs.downloadFile(RDT_EMBED_LINK, "preloads/reactDevtools.js");
+                      } else if (rdtFileExists === CheckState.TRUE) {
+                        fs.removeFile("preloads/reactDevtools.js");
+                      }
+                    }),
+                    icon: findAssetId(rdtFileExists === CheckState.TRUE ? "ic_message_delete" : "DownloadIcon"),
+                    style: {
+                      marginLeft: 8
+                    }
+                  })
+                }),
+                /* @__PURE__ */ jsx(TableSwitchRow, {
+                  label: Strings.ENABLE_EVAL_COMMAND,
+                  subLabel: Strings.ENABLE_EVAL_COMMAND_DESC,
+                  icon: /* @__PURE__ */ jsx(TableRow.Icon, {
+                    source: findAssetId("PencilIcon")
+                  }),
+                  value: settings.enableEvalCommand,
+                  onValueChange: (v2) => {
+                    settings.enableEvalCommand = v2;
+                  }
+                })
+              ]
+            })
+          ]
+        })
+      })
+    });
+  }
+  var import_react_native25, hideActionSheet3, showSimpleActionSheet4, RDT_EMBED_LINK, useStyles4;
+  var init_Developer = __esm({
+    "src/core/ui/settings/pages/Developer/index.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_async_to_generator();
+      init_jsxRuntime();
+      init_i18n();
+      init_useFS();
+      init_AssetBrowser();
+      init_storage();
+      init_assets();
+      init_debug();
+      init_loader();
       init_settings();
       init_lazy();
-      init_types();
+      init_common();
       init_components();
-      init_lazy2();
       init_wrappers();
       init_color();
       init_components2();
       init_styles();
-      import_react_native22 = __toESM(require_react_native());
-      ErrorBoundary2 = findByNameLazy("ErrorBoundary");
-      ({ BadgableTabBar } = lazyDestructure(() => findByProps("BadgableTabBar")));
-      styles2 = createThemedStyleSheet({
-        container: {
-          flex: 1,
-          backgroundColor: semanticColors.BACKGROUND_PRIMARY,
-          paddingHorizontal: 16
-        },
-        header: {
-          flex: 1,
-          flexDirection: "row",
-          justifyContent: "center",
-          alignItems: "center",
-          marginVertical: 8
-        },
-        headerTitle: {
+      import_react_native25 = __toESM(require_react_native());
+      ({ hideActionSheet: hideActionSheet3 } = lazyDestructure(() => findByProps("openLazy", "hideActionSheet")));
+      ({ showSimpleActionSheet: showSimpleActionSheet4 } = lazyDestructure(() => findByProps("showSimpleActionSheet")));
+      RDT_EMBED_LINK = "https://raw.githubusercontent.com/amsyarasyiq/rdt-embedder/main/dist.js";
+      useStyles4 = createStyles({
+        leadingText: {
           ...TextStyleSheet["heading-md/semibold"],
-          textAlign: "center",
-          textTransform: "uppercase",
-          color: semanticColors.HEADER_PRIMARY
-        },
-        headerDescription: {
-          ...TextStyleSheet["text-sm/medium"],
-          textAlign: "center",
-          color: semanticColors.TEXT_MUTED
-        },
-        footer: {
-          flexDirection: DeviceManager.isTablet ? "row" : "column",
-          justifyContent: "flex-end",
-          marginVertical: 8
+          color: semanticColors.TEXT_MUTED,
+          marginRight: -4
         }
       });
-      tabs = [
+    }
+  });
+
+  // src/core/ui/settings/index.ts
+  function initSettings() {
+    registerSection({
+      name: "Felocord",
+      items: [
         {
-          id: "message",
-          title: () => Strings.MESSAGE
-        },
-        {
-          id: "stack",
-          title: () => Strings.STACK_TRACE
-        },
-        {
-          id: "componentStack",
-          title: () => Strings.COMPONENT,
-          trimWhitespace: true
-        }
-      ];
-      safeMode_default = () => after.await("render", getErrorBoundaryContext(), function(_, ret) {
-        if (!this.state.error)
-          return;
-        this.state.activeTab ??= "message";
-        var tabData = tabs.find((t) => t.id === this.state.activeTab);
-        var errorText = this.state.error[this.state.activeTab];
-        var buttons = [
-          {
-            text: Strings.RELOAD_DISCORD,
-            onPress: this.handleReload
+          key: "BUNNY",
+          title: () => Strings.BUNNY,
+          icon: {
+            uri: felitendo_default
           },
-          ...!settings.safeMode?.enabled ? [
-            {
-              text: Strings.RELOAD_IN_SAFE_MODE,
-              onPress: toggleSafeMode
+          render: () => Promise.resolve().then(() => (init_General(), General_exports)),
+          useTrailing: () => `(${"6c624f4-main"})`
+        },
+        {
+          key: "BUNNY_PLUGINS",
+          title: () => Strings.PLUGINS,
+          icon: findAssetId("ActivitiesIcon"),
+          render: () => Promise.resolve().then(() => (init_Plugins(), Plugins_exports))
+        },
+        {
+          key: "BUNNY_THEMES",
+          title: () => Strings.THEMES,
+          icon: findAssetId("PaintPaletteIcon"),
+          render: () => Promise.resolve().then(() => (init_Themes(), Themes_exports)),
+          usePredicate: () => isThemeSupported()
+        },
+        {
+          key: "BUNNY_FONTS",
+          title: () => Strings.FONTS,
+          icon: findAssetId("ic_add_text"),
+          render: () => Promise.resolve().then(() => (init_Fonts(), Fonts_exports)),
+          usePredicate: () => isFontSupported()
+        },
+        {
+          key: "BUNNY_DEVELOPER",
+          title: () => Strings.DEVELOPER,
+          icon: findAssetId("WrenchIcon"),
+          render: () => Promise.resolve().then(() => (init_Developer(), Developer_exports)),
+          usePredicate: () => useProxy(settings).developerSettings ?? false
+        }
+      ]
+    });
+    registerSection({
+      name: "Vendetta",
+      items: []
+    });
+  }
+  var init_settings3 = __esm({
+    "src/core/ui/settings/index.ts"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_felitendo();
+      init_i18n();
+      init_storage();
+      init_assets();
+      init_loader();
+      init_settings();
+      init_settings2();
+    }
+  });
+
+  // globals:lodash
+  var require_lodash = __commonJS({
+    "globals:lodash"(exports, module) {
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      module.exports = require_depsModule()["lodash"];
+    }
+  });
+
+  // globals:util
+  var require_util = __commonJS({
+    "globals:util"(exports, module) {
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      module.exports = require_depsModule()["util"];
+    }
+  });
+
+  // src/core/vendetta/api.tsx
+  var import_react9, import_react_native26, initVendettaObject;
+  var init_api3 = __esm({
+    "src/core/vendetta/api.tsx"() {
+      "use strict";
+      init_asyncIteratorSymbol();
+      init_promiseAllSettled();
+      init_jsxRuntime();
+      init_alerts();
+      init_storage();
+      init_storage();
+      init_themes();
+      init_assets();
+      init_commands();
+      init_debug();
+      init_loader();
+      init_patcher();
+      init_settings();
+      init_utils();
+      init_cyrb64();
+      init_logger();
+      init_metro();
+      init_common();
+      init_components();
+      init_components();
+      init_color();
+      init_components2();
+      init_styles();
+      init_toasts();
+      init_dist();
+      import_react9 = __toESM(require_react());
+      import_react_native26 = __toESM(require_react_native());
+      init_plugins();
+      initVendettaObject = () => {
+        var createStackBasedFilter = (fn) => {
+          return (filter) => {
+            return fn(factories_exports.createSimpleFilter(filter, cyrb64Hash(new Error().stack)));
+          };
+        };
+        var api = window.vendetta = {
+          patcher: {
+            before: patcher_default.before,
+            after: patcher_default.after,
+            instead: patcher_default.instead
+          },
+          metro: {
+            modules: window.modules,
+            find: createStackBasedFilter(findExports),
+            findAll: createStackBasedFilter(findAllExports),
+            findByProps: (...props) => {
+              if (props.length === 1 && props[0] === "KeyboardAwareScrollView") {
+                props.push("listenToKeyboardEvents");
+              }
+              var ret = findByProps(...props);
+              if (ret == null) {
+                if (props.includes("ActionSheetTitleHeader")) {
+                  var module = findByProps("ActionSheetRow");
+                  return {
+                    ...module,
+                    ActionSheetTitleHeader: module.BottomSheetTitleHeader,
+                    ActionSheetContentContainer: ({ children }) => {
+                      (0, import_react9.useEffect)(() => console.warn("Discord has removed 'ActionSheetContentContainer', please move into something else. This has been temporarily replaced with View"), []);
+                      return /* @__PURE__ */ (0, import_react9.createElement)(import_react_native26.View, null, children);
+                    }
+                  };
+                }
+              }
+              return ret;
+            },
+            findByPropsAll: (...props) => findByPropsAll(...props),
+            findByName: (name, defaultExp) => {
+              if (name === "create" && typeof defaultExp === "undefined") {
+                return findByName("create", false).default;
+              }
+              return findByName(name, defaultExp ?? true);
+            },
+            findByNameAll: (name, defaultExp = true) => findByNameAll(name, defaultExp),
+            findByDisplayName: (displayName, defaultExp = true) => findByDisplayName(displayName, defaultExp),
+            findByDisplayNameAll: (displayName, defaultExp = true) => findByDisplayNameAll(displayName, defaultExp),
+            findByTypeName: (typeName, defaultExp = true) => findByTypeName(typeName, defaultExp),
+            findByTypeNameAll: (typeName, defaultExp = true) => findByTypeNameAll(typeName, defaultExp),
+            findByStoreName: (name) => findByStoreName(name),
+            common: {
+              constants,
+              channels,
+              i18n,
+              url,
+              toasts,
+              stylesheet: {
+                createThemedStyleSheet
+              },
+              clipboard,
+              assets,
+              invites,
+              commands,
+              navigation,
+              navigationStack,
+              NavigationNative,
+              Flux,
+              FluxDispatcher,
+              React: React2,
+              ReactNative,
+              moment: require_moment(),
+              chroma: require_chroma_js(),
+              lodash: require_lodash(),
+              util: require_util()
             }
-          ] : [],
-          {
-            text: Strings.RETRY_RENDER,
-            color: ButtonColors.RED,
-            onPress: () => this.setState({
-              info: null,
-              error: null
-            })
+          },
+          constants: {
+            DISCORD_SERVER: "https://discord.gg/n9QQ4XhhJP",
+            GITHUB: "https://github.com/vendetta-mod",
+            PROXY_PREFIX: "https://vd-plugins.github.io/proxy",
+            HTTP_REGEX: /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&/=]*)$/,
+            HTTP_REGEX_MULTI: /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_+.~#?&//=]*)/g,
+            DISCORD_SERVER_ID: "1015931589865246730",
+            PLUGINS_CHANNEL_ID: "1091880384561684561",
+            THEMES_CHANNEL_ID: "1091880434939482202"
+          },
+          utils: {
+            findInReactTree: (tree, filter) => findInReactTree(tree, filter),
+            findInTree: (tree, filter, options) => findInTree(tree, filter, options),
+            safeFetch: (input, options, timeout) => safeFetch(input, options, timeout),
+            unfreeze: (obj) => Object.isFrozen(obj) ? {
+              ...obj
+            } : obj,
+            without: (object, ...keys) => omit(object, keys)
+          },
+          debug: {
+            connectToDebugger: (url2) => connectToDebugger(url2),
+            getDebugInfo: () => getDebugInfo()
+          },
+          ui: {
+            components: {
+              Forms,
+              General: ReactNative,
+              Alert: LegacyAlert,
+              Button: CompatButton,
+              HelpMessage: (...props) => /* @__PURE__ */ jsx(HelpMessage, {
+                ...props
+              }),
+              SafeAreaView: (...props) => /* @__PURE__ */ jsx(SafeAreaView, {
+                ...props
+              }),
+              Summary,
+              ErrorBoundary,
+              Codeblock,
+              Search: Search_default
+            },
+            toasts: {
+              showToast: (content, asset) => showToast(content, asset)
+            },
+            alerts: {
+              showConfirmationAlert: (options) => showConfirmationAlert(options),
+              showCustomAlert: (component, props) => showCustomAlert(component, props),
+              showInputAlert: (options) => showInputAlert(options)
+            },
+            assets: {
+              all: assetsMap,
+              find: (filter) => findAsset(filter),
+              getAssetByName: (name) => findAsset(name),
+              getAssetByID: (id) => findAsset(id),
+              getAssetIDByName: (name) => findAssetId(name)
+            },
+            semanticColors,
+            rawColors
+          },
+          plugins: {
+            plugins: VdPluginManager.plugins,
+            fetchPlugin: (source) => VdPluginManager.fetchPlugin(source),
+            installPlugin: (source, enabled2 = true) => VdPluginManager.installPlugin(source, enabled2),
+            startPlugin: (id) => VdPluginManager.startPlugin(id),
+            stopPlugin: (id, disable = true) => VdPluginManager.stopPlugin(id, disable),
+            removePlugin: (id) => VdPluginManager.removePlugin(id),
+            getSettings: (id) => VdPluginManager.getSettings(id)
+          },
+          themes: {
+            themes,
+            fetchTheme: (id, selected) => fetchTheme(id, selected),
+            installTheme: (id) => installTheme(id),
+            selectTheme: (id) => selectTheme(id === "default" ? null : themes[id]),
+            removeTheme: (id) => removeTheme(id),
+            getCurrentTheme: () => getThemeFromLoader(),
+            updateThemes: () => updateThemes()
+          },
+          commands: {
+            registerCommand
+          },
+          storage: {
+            createProxy: (target) => createProxy(target),
+            useProxy: (_storage) => useProxy(_storage),
+            createStorage: (backend) => createStorage(backend),
+            wrapSync: (store) => wrapSync(store),
+            awaitSyncWrapper: (store) => awaitStorage(store),
+            createMMKVBackend: (store) => createMMKVBackend(store),
+            createFileBackend: (file) => {
+              if (isPyonLoader() && file === "vendetta_theme.json") {
+                file = "felitendo/current-theme.json";
+              }
+              return createFileBackend(file);
+            }
+          },
+          settings,
+          loader: {
+            identity: getVendettaLoaderIdentity() ?? void 0,
+            config: loaderConfig
+          },
+          logger: {
+            log: (...message) => console.log(...message),
+            info: (...message) => console.info(...message),
+            warn: (...message) => console.warn(...message),
+            error: (...message) => console.error(...message),
+            time: (...message) => console.time(...message),
+            trace: (...message) => console.trace(...message),
+            verbose: (...message) => console.log(...message)
+          },
+          version: versionHash,
+          unload: () => {
+            delete window.vendetta;
           }
-        ];
-        return /* @__PURE__ */ jsx(ErrorBoundary, {
-          children: /* @__PURE__ */ jsxs(SafeAreaView, {
-            style: styles2.container,
-            children: [
-              /* @__PURE__ */ jsxs(import_react_native22.View, {
-                style: styles2.header,
-                children: [
-                  /* @__PURE__ */ jsx(ret.props.Illustration, {
-                    style: {
-                      transform: [
-                        {
-                          scale: 0.6
-                        }
-                      ],
-                      marginLeft: -40,
-                      marginRight: -80
-                    }
-                  }),
-                  /* @__PURE__ */ jsxs(import_react_native22.View, {
-                    style: {
-                      flex: 2,
-                      paddingLeft: 24
-                    },
-                    children: [
-                      /* @__PURE__ */ jsx(import_react_native22.Text, {
-                        style: styles2.headerTitle,
-                        children: ret.props.title
-                      }),
-                      /* @__PURE__ */ jsx(import_react_native22.Text, {
-                        style: styles2.headerDescription,
-                        children: ret.props.body
-                      })
-                    ]
-                  })
-                ]
-              }),
-              /* @__PURE__ */ jsxs(import_react_native22.View, {
-                style: {
-                  flex: 6
-                },
-                children: [
-                  /* @__PURE__ */ jsx(import_react_native22.View, {
-                    style: {
-                      paddingBottom: 8
-                    },
-                    children: /* @__PURE__ */ jsx(BadgableTabBar, {
-                      tabs: tabs.map((t) => ({
-                        ...t,
-                        title: t.title()
-                      })),
-                      activeTab: this.state.activeTab,
-                      onTabSelected: (tab) => {
-                        this.setState({
-                          activeTab: tab
-                        });
-                      }
-                    })
-                  }),
-                  /* @__PURE__ */ jsx(Codeblock, {
-                    selectable: true,
-                    style: {
-                      flex: 1,
-                      textAlignVertical: "top"
-                    },
-                    children: tabData?.trimWhitespace ? errorText.split("\n").filter((i) => i.length !== 0).map((i) => i.trim()).join("\n") : errorText
-                  })
-                ]
-              }),
-              /* @__PURE__ */ jsx(import_react_native22.View, {
-                style: styles2.footer,
-                children: buttons.map((button) => {
-                  var buttonIndex = buttons.indexOf(button) !== 0 ? 8 : 0;
-                  return /* @__PURE__ */ jsx(CompatButton, {
-                    text: button.text,
-                    color: button.color ?? ButtonColors.BRAND,
-                    size: button.size ?? "small",
-                    onPress: button.onPress,
-                    style: {
-                      ...DeviceManager.isTablet ? {
-                        flex: `0.${buttons.length}`,
-                        marginLeft: buttonIndex
-                      } : {
-                        marginTop: buttonIndex
-                      },
-                      borderRadius: 16
-                    }
-                  });
-                })
-              })
-            ]
-          })
-        });
-      });
+        };
+        return () => api.unload();
+      };
     }
   });
 
@@ -9601,10 +10857,9 @@
   // src/lib/ui/index.ts
   var ui_exports = {};
   __export(ui_exports, {
-    alerts: () => alerts_exports,
-    color: () => color_exports,
-    components: () => components_exports,
+    components: () => components_exports2,
     settings: () => settings_exports2,
+    sheets: () => sheets_exports,
     styles: () => styles_exports,
     toasts: () => toasts_exports
   });
@@ -9613,10 +10868,9 @@
       "use strict";
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
-      init_alerts();
-      init_color();
       init_components2();
       init_settings2();
+      init_sheets();
       init_styles();
       init_toasts();
     }
@@ -9625,6 +10879,7 @@
   // src/lib/index.ts
   var lib_exports = {};
   __export(lib_exports, {
+    _jsx: () => jsxRuntime_exports,
     api: () => api_exports,
     fonts: () => fonts_exports,
     managers: () => managers,
@@ -9649,16 +10904,17 @@
       init_promiseAllSettled();
       init_global_d();
       init_modules_d();
-      init_api2();
       init_fonts();
       init_plugins4();
       init_themes();
+      init_api();
       init_ui();
       init_utils();
       init_metro();
       init_fonts();
       init_plugins4();
       init_themes();
+      init_jsxRuntime();
       init_lazy();
       managers = proxyLazy(() => {
         console.warn("felocord.managers.* is deprecated, and moved the top level (felocord.*). felocord.managers will be eventually removed soon");
@@ -9688,6 +10944,18 @@
   __export(src_exports, {
     default: () => src_default
   });
+  function maybeLoadThemes() {
+    if (!isThemeSupported())
+      return;
+    try {
+      if (isPyonLoader()) {
+        writeFile("../vendetta_theme.json", "null");
+      }
+      initThemes();
+    } catch (e) {
+      console.error("Failed to initialize themes", e);
+    }
+  }
   var src_default;
   var init_src = __esm({
     "src/index.ts"() {
@@ -9695,50 +10963,39 @@
       init_asyncIteratorSymbol();
       init_promiseAllSettled();
       init_async_to_generator();
+      init_patchErrorBoundary();
       init_fixes();
       init_i18n();
       init_settings3();
-      init_api();
+      init_api3();
       init_plugins();
+      init_fonts();
+      init_plugins4();
+      init_themes();
       init_commands();
       init_debug();
       init_flux();
       init_fs();
       init_loader();
-      init_modules();
-      init_fonts();
-      init_plugins4();
-      init_themes();
+      init_jsx();
       init_logger();
-      init_safeMode();
       init_settings2();
       init_lib();
       src_default = /* @__PURE__ */ _async_to_generator(function* () {
-        if (isThemeSupported()) {
-          try {
-            if (isPyonLoader()) {
-              if (FileManager.removeFile != null) {
-                removeFile("vendetta_theme.json", "");
-              } else {
-                writeFile("vendetta_theme.json", "null", "");
-              }
-            }
-            initThemes();
-          } catch (e) {
-            console.error("[Felocord] Failed to initialize themes...", e);
-          }
-        }
+        maybeLoadThemes();
         yield Promise.all([
           injectFluxInterceptor(),
           patchSettings(),
           patchLogHook(),
           patchCommands(),
           patchChatBackground(),
+          patchJsx(),
           initVendettaObject(),
           initFetchI18nStrings(),
           initSettings(),
           fixes_default(),
-          safeMode_default()
+          patchErrorBoundary(),
+          updatePlugins()
         ]).then(
           // Push them all to unloader
           (u) => u.forEach((f) => f && unload.push(f))
@@ -9774,7 +11031,7 @@
         alert([
           "Failed to load Felocord!\n",
           `Build Number: ${ClientInfoManager2.Build}`,
-          `Felocord: ${"10885c3-main"}`,
+          `Felocord: ${"6c624f4-main"}`,
           stack || e?.toString?.()
         ].join("\n"));
       }
@@ -9794,7 +11051,7 @@
         }
         return orig.apply(batchedBridge, args);
       });
-      var startDiscord = function() {
+      var startDiscord = /* @__PURE__ */ function() {
         var _ref = _async_to_generator(function* () {
           yield initializeFelocord();
           unpatchHook();
@@ -9812,13 +11069,13 @@
       __r: {
         configurable: true,
         get: () => _requireFunc,
-        set(v) {
+        set(v2) {
           _requireFunc = function patchedRequire(a) {
             if (a === 0) {
-              onceIndexRequired(v);
-              _requireFunc = v;
+              onceIndexRequired(v2);
+              _requireFunc = v2;
             } else
-              return v(a);
+              return v2(a);
           };
         }
       },
@@ -9830,8 +11087,8 @@
           }
           return this.value;
         },
-        set(v) {
-          this.value = v;
+        set(v2) {
+          this.value = v2;
         }
       }
     });
